@@ -1,0 +1,22 @@
+# Dependências
+node_modules/
+vendor/
+.venv/
+
+# Build / dist
+dist/
+build/
+
+# Cache / temporários
+.cache/
+__pycache__/
+*.log
+*.tmp
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
