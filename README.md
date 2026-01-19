@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ✈️ Planeje Fácil
 
 > "Viajar pode ser leve. Planejar também."
@@ -326,3 +327,6 @@ Precisa de ajuda?
 [Ver Documentação](./DOCUMENTACAO.md) • [Guia Rápido](./LEIA-ME.md) • [Exemplos](./EXEMPLOS-CODIGO.md)
 
 </div>
+=======
+# planejeviagem
+>>>>>>> origin/master
