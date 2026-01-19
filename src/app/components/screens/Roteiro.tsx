@@ -1,179 +1,294 @@
+import { useState } from 'react';
 import {
   MapPin,
-  Clock,
-  Star,
-  Navigation,
-  ArrowLeft,
-  MoreHorizontal,
-} from "lucide-react";
-import { Logo } from "../Logo";
-import { BottomNavigation } from "../BottomNavigation";
+  Lock,
+  LogIn,
+  Crown,
+  ShoppingCart,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
+  ChevronRight,
+} from 'lucide-react';
+import { Logo } from '../Logo';
+import { BottomNavigation } from '../BottomNavigation';
+import { UserBadge } from '../UserBadge';
+import { ItineraryModal } from '../ItineraryModal';
+import { useAuth } from '@/app/context/AuthContext';
+import { useNavigation } from '@/app/context/NavigationContext';
+import { useTrips } from '@/app/context/TripsContext';
+import type { Trip } from '@/types';
 
 export function Roteiro() {
-  const itinerary = [
-    {
-      day: 1,
-      date: "15 Mar",
-      activities: [
-        {
-          id: 1,
-          time: "09:00",
-          title: "Cristo Redentor",
-          location: "Corcovado",
-          duration: "2h",
-          rating: 4.8,
-        },
-        {
-          id: 2,
-          time: "14:00",
-          title: "Pão de Açúcar",
-          location: "Urca",
-          duration: "3h",
-          rating: 4.9,
-        },
-        {
-          id: 3,
-          time: "19:00",
-          title: "Jantar em Ipanema",
-          location: "Ipanema",
-          duration: "2h",
-          rating: 4.5,
-        },
-      ],
-    },
-    {
-      day: 2,
-      date: "16 Mar",
-      activities: [
-        {
-          id: 4,
-          time: "10:00",
-          title: "Praia de Copacabana",
-          location: "Copacabana",
-          duration: "4h",
-          rating: 4.7,
-        },
-        {
-          id: 5,
-          time: "15:00",
-          title: "Escadaria Selarón",
-          location: "Lapa",
-          duration: "1h",
-          rating: 4.6,
-        },
-      ],
-    },
-  ];
+  const { user, isGuest, isPremium } = useAuth();
+  const { setCurrentScreen } = useNavigation();
+  const { trips, selectTrip } = useTrips();
+  
+  const [selectedTripForModal, setSelectedTripForModal] = useState<Trip | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Função para abrir modal com roteiro
+  const handleOpenItinerary = (trip: Trip) => {
+    setSelectedTripForModal(trip);
+    setIsModalOpen(true);
+  };
+
+  // Função para fechar modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedTripForModal(null);
+  };
+
+  // Função para editar roteiro (premium)
+  const handleEditItinerary = () => {
+    if (selectedTripForModal) {
+      selectTrip(selectedTripForModal.id);
+      setIsModalOpen(false);
+      setCurrentScreen('trips'); // Vai para minhas viagens onde tem o editor
+    }
+  };
+
+  // GUEST: Blocked from accessing itineraries
+  if (isGuest) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
+          <div className="flex items-center justify-center">
+            <Logo size={32} variant="full" className="text-sky-500" />
+          </div>
+        </header>
+
+        <main className="px-4 pt-12 flex flex-col items-center justify-center min-h-[70vh]">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+            <Lock className="w-10 h-10 text-gray-400" />
+          </div>
+
+          <h1 className="text-2xl font-semibold mb-2 text-center">
+            Roteiros são exclusivos para usuários
+          </h1>
+          <p className="text-gray-600 text-center mb-8 max-w-md">
+            Crie uma conta gratuita para acessar roteiros de viagem criados por
+            nossa equipe ou crie os seus próprios.
+          </p>
+
+          <div className="w-full max-w-md space-y-3">
+            <button
+              onClick={() => setCurrentScreen('signup')}
+              className="w-full bg-sky-500 text-white py-4 rounded-xl font-medium hover:bg-sky-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-5 h-5" />
+              Criar conta grátis
+            </button>
+
+            <button
+              onClick={() => setCurrentScreen('login')}
+              className="w-full border-2 border-sky-200 text-sky-500 py-4 rounded-xl font-medium hover:bg-sky-50 transition-colors"
+            >
+              Já tenho conta
+            </button>
+          </div>
+
+          <div className="mt-8 p-4 bg-blue-50 rounded-xl max-w-md">
+            <p className="text-sm text-blue-800 text-center">
+              💡 <strong>Dica:</strong> Você pode explorar destinos e criar
+              checklists como visitante, mas roteiros requerem conta.
+            </p>
+          </div>
+        </main>
+
+        <BottomNavigation activeTab="itinerary" />
+      </div>
+    );
+  }
+
+  // LOGGED USER: Show trips list
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
         <div className="flex items-center justify-between">
-          <div className="w-10">
-            <button className="p-2">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          </div>
-          <Logo
-            size={32}
-            variant="full"
-            className="text-sky-500"
-          />
-          <div className="flex items-center gap-1">
-            <button className="p-2">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-          </div>
+          <Logo size={32} variant="full" className="text-sky-500" />
+          <UserBadge role={user!.role} size="sm" />
         </div>
       </header>
 
       <main className="px-4 pt-6">
+        {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl mb-1">Roteiro</h1>
+          <h1 className="text-2xl font-bold mb-1">Meus Roteiros</h1>
           <p className="text-sm text-gray-600">
-            Organize seu dia a dia na viagem
+            Clique em uma viagem para ver o roteiro detalhado
           </p>
         </div>
 
-        <div className="mb-6 p-4 bg-white rounded-xl shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-lg">Rio de Janeiro</h2>
-              <p className="text-sm text-gray-600">
-                15-20 Mar 2026 • 6 dias
-              </p>
+        {/* Empty State */}
+        {trips.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MapPin className="w-10 h-10 text-gray-400" />
             </div>
-            <button className="p-2 bg-sky-100 text-sky-500 rounded-lg">
-              <Navigation className="w-5 h-5" />
+            <h2 className="text-xl font-semibold mb-2">Nenhuma viagem cadastrada</h2>
+            <p className="text-gray-600 mb-6">
+              Crie sua primeira viagem para começar a planejar
+            </p>
+            <button
+              onClick={() => setCurrentScreen('trips')}
+              className="bg-sky-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors inline-flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Criar primeira viagem
             </button>
           </div>
-        </div>
+        )}
 
-        <div className="space-y-6">
-          {itinerary.map((dayPlan) => (
-            <div key={dayPlan.day}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-12 h-12 bg-sky-500 text-white rounded-full flex items-center justify-center font-semibold">
-                  {dayPlan.day}
-                </div>
-                <div>
-                  <p className="font-medium">
-                    Dia {dayPlan.day}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {dayPlan.date}
-                  </p>
-                </div>
-              </div>
+        {/* Trips List */}
+        {trips.length > 0 && (
+          <div className="space-y-4 mb-6">
+            {trips.map((trip) => {
+              const hasItinerary = trip.itinerary && trip.itinerary.length > 0;
+              const isPurchased = trip.status === 'purchased' || trip.status === 'delivered';
+              const canViewItinerary = isPremium || isPurchased || hasItinerary;
 
-              <div className="ml-6 border-l-2 border-gray-200 pl-4 space-y-4">
-                {dayPlan.activities.map((activity, index) => (
-                  <div
-                    key={activity.id}
-                    className="relative pb-4"
-                  >
-                    <div className="absolute -left-[1.375rem] top-2 w-3 h-3 bg-sky-500 rounded-full border-2 border-white" />
-                    <div className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Clock className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {activity.time}
-                            </span>
-                            <span className="text-sm text-gray-400">
-                              • {activity.duration}
+              return (
+                <button
+                  key={trip.id}
+                  onClick={() => canViewItinerary ? handleOpenItinerary(trip) : null}
+                  className={`w-full bg-white rounded-xl p-4 shadow-sm border-2 transition-all text-left ${
+                    canViewItinerary 
+                      ? 'border-sky-200 hover:border-sky-400 hover:shadow-md cursor-pointer' 
+                      : 'border-gray-200 opacity-60 cursor-not-allowed'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-bold text-gray-900">
+                          {trip.destination}
+                        </h3>
+                        {hasItinerary && (
+                          <div className="flex items-center gap-1 bg-green-100 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3 text-green-600" />
+                            <span className="text-xs font-medium text-green-700">
+                              Com roteiro
                             </span>
                           </div>
-                          <h3 className="font-medium mb-1">
-                            {activity.title}
-                          </h3>
-                          <div className="flex items-center gap-1 text-sm text-gray-600">
-                            <MapPin className="w-4 h-4" />
-                            {activity.location}
+                        )}
+                        {!hasItinerary && !canViewItinerary && (
+                          <div className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-full">
+                            <AlertCircle className="w-3 h-3 text-gray-500" />
+                            <span className="text-xs font-medium text-gray-600">
+                              Sem roteiro
+                            </span>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded">
-                          <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                          <span className="text-sm font-medium">
-                            {activity.rating}
-                          </span>
-                        </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4" />
+                        <span>{trip.startDate} - {trip.endDate}</span>
+                      </div>
+                      
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          {trip.budget}
+                        </span>
+                        <span className="text-xs text-gray-500">•</span>
+                        <span className="text-sm text-gray-600">
+                          {trip.tasks.filter(t => t.completed).length}/{trip.tasks.length} tarefas
+                        </span>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
 
-        <button className="w-full mt-6 py-3 border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-sky-300 hover:text-sky-500 transition-colors">
-          + Adicionar dia ao roteiro
-        </button>
+                    {canViewItinerary && (
+                      <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" />
+                    )}
+                  </div>
+
+                  {!canViewItinerary && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-xs text-gray-600">
+                        {isPremium ? (
+                          '📝 Crie um roteiro para esta viagem'
+                        ) : (
+                          '🔒 Compre o planejamento ou seja Premium para acessar roteiros'
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* CTA Cards */}
+        {trips.length > 0 && (
+          <div className="space-y-4">
+            {/* Premium CTA for non-premium users */}
+            {!isPremium && (
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-300 rounded-xl p-5">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Crown className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-amber-900 mb-1">
+                      Crie roteiros ilimitados
+                    </h3>
+                    <p className="text-sm text-amber-800">
+                      Com o Premium, você pode criar e editar roteiros personalizados
+                      para todas as suas viagens.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCurrentScreen('profile')}
+                  className="w-full bg-amber-500 text-white py-3 rounded-xl font-medium hover:bg-amber-600 transition-colors"
+                >
+                  Ver plano Premium
+                </button>
+              </div>
+            )}
+
+            {/* Purchase Planning CTA */}
+            <div className="bg-white border-2 border-sky-200 rounded-xl p-5">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-10 h-10 bg-sky-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <ShoppingCart className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-sky-900 mb-1">
+                    Planejamento Profissional
+                  </h3>
+                  <p className="text-sm text-gray-700">
+                    Nossa equipe cria um roteiro completo e personalizado para sua
+                    viagem por apenas R$ 299,90
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCurrentScreen('trips')}
+                className="w-full bg-sky-500 text-white py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors"
+              >
+                Comprar planejamento
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       <BottomNavigation activeTab="itinerary" />
+
+      {/* Itinerary Modal */}
+      {selectedTripForModal && (
+        <ItineraryModal
+          trip={selectedTripForModal}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onEdit={isPremium ? handleEditItinerary : undefined}
+          canEdit={isPremium}
+        />
+      )}
     </div>
   );
 }

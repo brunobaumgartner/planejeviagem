@@ -1,21 +1,50 @@
-import { useState } from "react";
+import { CheckCircle2, Circle, Plus, Calendar, MapPin, Trash2, DollarSign, Package, AlertCircle, Clock, CreditCard } from "lucide-react";
+import { TaskAttachments } from '@/app/components/TaskAttachments';
+import type { TaskAttachment } from '@/types';
+import { useState, useEffect } from "react";
 import { 
-  Plus, ChevronRight, Calendar, MapPin, CheckCircle, 
-  MoreVertical, Trash2, Circle, CheckCircle2, ArrowLeft,
-  RotateCcw, Share, MoreHorizontal
+  ChevronRight, MoreVertical, ArrowLeft,
+  RotateCcw, Share, MoreHorizontal, Sparkles, Edit3, Plane
 } from "lucide-react";
 import { BottomNavigation } from "../BottomNavigation";
 import { useTrips } from "@/app/context/TripsContext";
+import { useAuth } from "@/app/context/AuthContext";
+import { useNavigation } from "@/app/context/NavigationContext";
 import { AddTripModal } from "../AddTripModal";
 import { AddTaskModal } from "../AddTaskModal";
+import { PurchasePlanningModal } from "../PurchasePlanningModal";
+import { ItineraryEditor } from "../ItineraryEditor";
 import { Logo } from "../Logo";
+import { LoadingState } from "@/app/components/ui/LoadingState";
+import { EmptyState } from "@/app/components/ui/EmptyState";
+import type { Trip } from "@/types";
 
 export function MinhasViagens() {
-  const { trips, toggleTask, addTrip, deleteTrip, addTask, deleteTask } = useTrips();
+  const { trips, toggleTask, addTrip, deleteTrip, addTask, deleteTask, updateTrip, selectTrip, selectedTrip } = useTrips();
+  const { user } = useAuth();
+  const { setCurrentScreen } = useNavigation();
   const [showAddTripModal, setShowAddTripModal] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showItineraryEditor, setShowItineraryEditor] = useState(false);
   const [selectedTripForTask, setSelectedTripForTask] = useState<string | null>(null);
+  const [selectedTripForPurchase, setSelectedTripForPurchase] = useState<Trip | null>(null);
+  const [selectedTripForItinerary, setSelectedTripForItinerary] = useState<Trip | null>(null);
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [hasCheckedAutoOpen, setHasCheckedAutoOpen] = useState(false);
+
+  // Auto-abrir modal de adicionar viagem se não houver viagens
+  useEffect(() => {
+    if (!hasCheckedAutoOpen && trips.length === 0) {
+      // Pequeno delay para garantir que o componente renderizou
+      const timer = setTimeout(() => {
+        setShowAddTripModal(true);
+        setHasCheckedAutoOpen(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [trips.length, hasCheckedAutoOpen]);
 
   const handleAddTask = (tripId: string, tripDestination: string) => {
     setSelectedTripForTask(tripId);
@@ -28,7 +57,38 @@ export function MinhasViagens() {
     }
   };
 
+  const handleUpdateTaskAttachments = async (tripId: string, taskId: string, attachments: TaskAttachment[]) => {
+    const trip = trips.find(t => t.id === tripId);
+    if (!trip) return;
+
+    const updatedTasks = trip.tasks.map(task =>
+      task.id === taskId ? { ...task, attachments } : task
+    );
+
+    await updateTrip(tripId, { tasks: updatedTasks });
+  };
+
   const selectedTripData = trips.find(t => t.id === selectedTripForTask);
+
+  const handleSaveItinerary = async (itinerary: any[]) => {
+    if (!selectedTripForItinerary) return;
+    
+    console.log('[MinhasViagens] Salvando roteiro...', itinerary);
+    
+    // Primeiro seleciona a viagem no context
+    selectTrip(selectedTripForItinerary.id);
+    
+    // Salva o itinerário
+    await updateTrip(selectedTripForItinerary.id, { itinerary });
+    
+    console.log('[MinhasViagens] ✅ Roteiro salvo com sucesso!');
+    
+    // Fecha o modal
+    setShowItineraryEditor(false);
+    
+    // Navega para a tela de roteiro
+    setCurrentScreen('itinerary');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -68,19 +128,15 @@ export function MinhasViagens() {
         </div>
 
         {trips.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="mb-4 inline-block p-4 bg-gray-200 rounded-full">
-              <MapPin className="w-12 h-12 text-gray-400" />
-            </div>
-            <h2 className="text-xl mb-2">Nenhuma viagem planejada</h2>
-            <p className="text-gray-600 mb-6">Comece a planejar sua próxima aventura</p>
-            <button 
-              onClick={() => setShowAddTripModal(true)}
-              className="px-6 py-3 bg-sky-500 text-white rounded-full hover:bg-sky-600 transition-colors"
-            >
-              Criar nova viagem
-            </button>
-          </div>
+          <EmptyState
+            icon={Plane}
+            title="Nenhuma viagem planejada"
+            description="Comece a planejar sua próxima aventura criando sua primeira viagem"
+            action={{
+              label: "Criar nova viagem",
+              onClick: () => setShowAddTripModal(true)
+            }}
+          />
         ) : (
           <div className="space-y-4">
             {trips.map((trip) => (
@@ -137,36 +193,118 @@ export function MinhasViagens() {
                   </div>
                 </div>
 
+                {/* Botão de comprar planejamento - apenas para usuários logados */}
+                {user && user.role !== 'guest' && trip.status === 'planning' && (
+                  <div className="mb-3">
+                    <button
+                      onClick={() => {
+                        setSelectedTripForPurchase(trip);
+                        setShowPurchaseModal(true);
+                      }}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-lg font-medium hover:from-amber-500 hover:to-orange-600 transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>Comprar Planejamento Personalizado</span>
+                    </button>
+                    <p className="text-xs text-center text-gray-500 mt-1">
+                      R$ 299,90 • Entrega em até 48h úteis
+                    </p>
+                  </div>
+                )}
+
+                {/* Botão de criar roteiro manual - APENAS PREMIUM */}
+                {user && user.role === 'premium' && (
+                  <div className="mb-3">
+                    <button
+                      onClick={() => {
+                        setSelectedTripForItinerary(trip);
+                        setShowItineraryEditor(true);
+                      }}
+                      className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg font-medium hover:from-purple-600 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      <span>{trip.itinerary && trip.itinerary.length > 0 ? 'Editar Roteiro' : 'Criar Roteiro Premium'}</span>
+                    </button>
+                    <p className="text-xs text-center text-purple-600 mt-1 font-medium">
+                      💎 Recurso Exclusivo Premium
+                    </p>
+                  </div>
+                )}
+
+                {/* Status da viagem */}
+                {trip.status !== 'planning' && (
+                  <div className="mb-3">
+                    {trip.status === 'purchased' && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm font-medium text-amber-800">
+                          ⏳ Aguardando confirmação de pagamento
+                        </p>
+                      </div>
+                    )}
+                    {trip.status === 'in_progress' && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm font-medium text-blue-800">
+                          🎨 Planejamento em criação
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Nossos especialistas estão criando seu roteiro personalizado
+                        </p>
+                      </div>
+                    )}
+                    {trip.status === 'delivered' && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm font-medium text-green-800">
+                          ✅ Planejamento entregue!
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          Veja seu roteiro completo na aba Roteiro
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   {trip.tasks.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 group">
-                      <button
-                        onClick={() => toggleTask(trip.id, task.id)}
-                        className="flex items-center gap-2 flex-1"
-                      >
-                        {task.completed ? (
-                          <CheckCircle2 className="w-5 h-5 text-sky-500 flex-shrink-0" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-gray-300 flex-shrink-0" />
-                        )}
-                        <span
-                          className={`text-sm ${
-                            task.completed ? "line-through text-gray-400" : "text-gray-700"
-                          }`}
+                    <div key={task.id} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 group">
+                        <button
+                          onClick={() => toggleTask(trip.id, task.id)}
+                          className="flex items-center gap-2 flex-1"
                         >
-                          {task.text}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Deseja excluir a tarefa "${task.text}"?`)) {
-                            deleteTask(trip.id, task.id);
-                          }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
+                          {task.completed ? (
+                            <CheckCircle2 className="w-5 h-5 text-sky-500 flex-shrink-0" />
+                          ) : (
+                            <Circle className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                          )}
+                          <span
+                            className={`text-sm ${
+                              task.completed ? "line-through text-gray-400" : "text-gray-700"
+                            }`}
+                          >
+                            {task.text}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Deseja excluir a tarefa "${task.text}"?`)) {
+                              deleteTask(trip.id, task.id);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                      
+                      {/* Anexos da tarefa */}
+                      <div className="mt-2 pl-7">
+                        <TaskAttachments
+                          taskId={task.id}
+                          attachments={task.attachments || []}
+                          onUpdate={(attachments) => handleUpdateTaskAttachments(trip.id, task.id, attachments)}
+                        />
+                      </div>
                     </div>
                   ))}
                   
@@ -199,6 +337,25 @@ export function MinhasViagens() {
         }}
         onSubmit={handleTaskSubmit}
         tripDestination={selectedTripData?.destination || ""}
+      />
+
+      <PurchasePlanningModal
+        isOpen={showPurchaseModal}
+        onClose={() => {
+          setShowPurchaseModal(false);
+          setSelectedTripForPurchase(null);
+        }}
+        trip={selectedTripForPurchase}
+      />
+
+      <ItineraryEditor
+        isOpen={showItineraryEditor}
+        onClose={() => {
+          setShowItineraryEditor(false);
+          setSelectedTripForItinerary(null);
+        }}
+        trip={selectedTripForItinerary}
+        onSave={handleSaveItinerary}
       />
     </div>
   );

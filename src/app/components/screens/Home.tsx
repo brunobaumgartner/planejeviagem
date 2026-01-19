@@ -15,99 +15,6 @@ import { useNavigation } from "@/app/context/NavigationContext";
 export function Home() {
   const { setCurrentScreen } = useNavigation();
 
-  // Mock data for demonstrations
-  const flights = [
-    {
-      id: 1,
-      imageUrl:
-        "https://images.unsplash.com/photo-1574444851660-e549a835d4ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 2,
-      imageUrl:
-        "https://images.unsplash.com/photo-1574444851660-e549a835d4ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 3,
-      imageUrl:
-        "https://images.unsplash.com/photo-1574444851660-e549a835d4ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 4,
-      imageUrl:
-        "https://images.unsplash.com/photo-1574444851660-e549a835d4ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-  ];
-
-  const hotels = [
-    {
-      id: 1,
-      imageUrl:
-        "https://images.unsplash.com/photo-1731336478850-6bce7235e320?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 2,
-      imageUrl:
-        "https://images.unsplash.com/photo-1731336478850-6bce7235e320?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 3,
-      imageUrl:
-        "https://images.unsplash.com/photo-1731336478850-6bce7235e320?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 4,
-      imageUrl:
-        "https://images.unsplash.com/photo-1731336478850-6bce7235e320?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-  ];
-
-  const vehicles = [
-    {
-      id: 1,
-      imageUrl:
-        "https://images.unsplash.com/photo-1760976396211-5546ce83a400?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 2,
-      imageUrl:
-        "https://images.unsplash.com/photo-1760976396211-5546ce83a400?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 3,
-      imageUrl:
-        "https://images.unsplash.com/photo-1760976396211-5546ce83a400?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 4,
-      imageUrl:
-        "https://images.unsplash.com/photo-1760976396211-5546ce83a400?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-  ];
-
-  const packages = [
-    {
-      id: 1,
-      imageUrl:
-        "https://images.unsplash.com/photo-1706208224221-0944db693705?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 2,
-      imageUrl:
-        "https://images.unsplash.com/photo-1706208224221-0944db693705?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 3,
-      imageUrl:
-        "https://images.unsplash.com/photo-1706208224221-0944db693705?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-    {
-      id: 4,
-      imageUrl:
-        "https://images.unsplash.com/photo-1706208224221-0944db693705?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-white pb-24">
       {/* Header */}
@@ -149,72 +56,24 @@ export function Home() {
           </p>
         </div>
 
-        {/* Packages Section - Com botão para ver todos */}
-        <CategorySection
-          title="Pacotes prontos"
-          subtitle="Ideias de viagens já organizadas para você adaptar"
-          actionButton={
-            <button
-              onClick={() => setCurrentScreen("packages")}
-              className="text-sm text-sky-600 hover:text-sky-700 font-medium"
-            >
-              Ver todos →
-            </button>
-          }
-        >
-          <ScrollableSection>
-            {packages.map((pkg) => (
-              <TravelCard
-                key={pkg.id}
-                imageUrl={pkg.imageUrl}
-              />
-            ))}
-          </ScrollableSection>
-        </CategorySection>
-        {/* Flights Section */}
-        <CategorySection
-          title="Voos"
-          subtitle="Compare opções e entenda o custo da viagem"
-        >
-          <ScrollableSection>
-            {flights.map((flight) => (
-              <TravelCard
-                key={flight.id}
-                imageUrl={flight.imageUrl}
-              />
-            ))}
-          </ScrollableSection>
-        </CategorySection>
+        {/* SEÇÕES ESTÁTICAS OCULTAS TEMPORARIAMENTE */}
+        {/* Pacotes, Voos, Hotéis e Veículos serão substituídos por APIs reais futuramente */}
 
-        {/* Hotels Section */}
-        <CategorySection
-          title="Hotéis"
-          subtitle="Veja opções de hospedagem para o seu estilo e orçamento"
-        >
-          <ScrollableSection>
-            {hotels.map((hotel) => (
-              <TravelCard
-                key={hotel.id}
-                imageUrl={hotel.imageUrl}
-              />
-            ))}
-          </ScrollableSection>
-        </CategorySection>
-
-        {/* Vehicles Section */}
-        <CategorySection
-          title="Veículos"
-          subtitle="Aluguel de carros e transporte no destino"
-        >
-          <ScrollableSection>
-            {vehicles.map((vehicle) => (
-              <TravelCard
-                key={vehicle.id}
-                imageUrl={vehicle.imageUrl}
-              />
-            ))}
-          </ScrollableSection>
-        </CategorySection>
+        {/* Call to Action */}
+        <div className="text-center py-12 px-4 bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">
+            ✈️ Comece a planejar sua viagem
+          </h2>
+          <p className="text-gray-700 mb-6 max-w-md mx-auto">
+            Use nossa calculadora inteligente para descobrir quanto vai custar sua próxima aventura.
+          </p>
+          <button
+            onClick={() => setCurrentScreen("trips")}
+            className="bg-sky-500 text-white px-8 py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors inline-flex items-center gap-2 shadow-md"
+          >
+            Calcular orçamento →
+          </button>
+        </div>
 
         {/* Support Message */}
         <div className="text-center py-8 px-4 bg-gray-50 rounded-lg mb-6">

@@ -10,7 +10,7 @@ export function BottomNavigation({ activeTab }: BottomNavigationProps) {
   const active = activeTab || currentScreen;
 
   const navItems = [
-    { id: "home" as const, icon: Home, label: "Explorar" },
+    { id: "home" as const, icon: Home, label: "Início" },
     { id: "trips" as const, icon: CheckSquare, label: "Minhas viagens" },
     { id: "itinerary" as const, icon: Map, label: "Roteiro" },
     { id: "profile" as const, icon: User, label: "Minha conta" },

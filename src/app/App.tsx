@@ -1,45 +1,83 @@
 import { useState, useEffect } from "react";
-import { SplashScreen } from "./components/SplashScreen";
 import { Home } from "./components/screens/Home";
+import { TravelPackages } from "./components/screens/TravelPackages";
 import { MinhasViagens } from "./components/screens/MinhasViagens";
 import { Roteiro } from "./components/screens/Roteiro";
 import { Perfil } from "./components/screens/Perfil";
-import { TravelPackages } from "./components/screens/TravelPackages";
+import { Login } from "./components/screens/Login";
+import { Signup } from "./components/screens/Signup";
+import { ForgotPassword } from "./components/screens/ForgotPassword";
+import { ResetPassword } from "./components/screens/ResetPassword";
+import { SplashScreen } from "./components/SplashScreen";
+import { PaymentCallback } from "./components/screens/PaymentCallback";
+import { Admin } from "./components/screens/Admin";
+import { TestHelper } from "./components/TestHelper";
 import { NavigationProvider, useNavigation } from "./context/NavigationContext";
 import { TripsProvider } from "./context/TripsContext";
+import { AuthProvider } from "./context/AuthContext";
+import { NotificationsProvider } from "./context/NotificationsContext";
 
-import { useAutenticacao } from "../hooks/useAutenticacao";
-
+// Mostrar TestHelper apenas em desenvolvimento
+const isDev = import.meta.env.DEV;
 
 function AppContent() {
-  const { currentScreen, navigate } = useNavigation();
-  const { usuario, carregando } = useAutenticacao();
+  const { currentScreen } = useNavigation();
 
-  if (carregando) {
-    return <p>Carregando...</p>;
+  // Detectar rotas de callback de pagamento via URL
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.includes('/payment-success') || 
+        path.includes('/payment-failure') || 
+        path.includes('/payment-pending')) {
+      // Não fazer nada, deixar o switch abaixo renderizar
+    }
+  }, []);
+
+  // Check URL for payment callbacks
+  const path = window.location.pathname;
+  const isPaymentCallback = path.includes('/payment-success') || 
+                           path.includes('/payment-failure') || 
+                           path.includes('/payment-pending');
+  
+  if (path.includes('/payment-success')) {
+    return <PaymentCallback result="success" />;
+  }
+  if (path.includes('/payment-failure')) {
+    return <PaymentCallback result="failure" />;
+  }
+  if (path.includes('/payment-pending')) {
+    return <PaymentCallback result="pending" />;
   }
 
-  switch (currentScreen) {
-    case "packages":
-      return <TravelPackages />;
-
-    case "trips":
-      return <MinhasViagens />;
-
-    case "itinerary":
-      // 🔒 SOMENTE USUÁRIO LOGADO
-      if (!usuario) {
-        navigate("profile");
-        return null;
-      }
-      return <Roteiro />;
-
-    case "profile":
-      return <Perfil />;
-
-    default:
-      return <Home />;
-  }
+  return (
+    <>
+      {(() => {
+        switch (currentScreen) {
+          case "packages":
+            return <TravelPackages />;
+          case "trips":
+            return <MinhasViagens />;
+          case "itinerary":
+            return <Roteiro />;
+          case "profile":
+            return <Perfil />;
+          case "login":
+            return <Login />;
+          case "signup":
+            return <Signup />;
+          case "forgot-password":
+            return <ForgotPassword />;
+          case "reset-password":
+            return <ResetPassword />;
+          case "admin":
+            return <Admin />;
+          default:
+            return <Home />;
+        }
+      })()}
+      {isDev && !isPaymentCallback && <TestHelper />}
+    </>
+  );
 }
 
 export default function App() {
@@ -57,10 +95,14 @@ export default function App() {
   }
 
   return (
-    <NavigationProvider>
-      <TripsProvider>
-        <AppContent />
-      </TripsProvider>
-    </NavigationProvider>
+    <AuthProvider>
+      <NavigationProvider>
+        <TripsProvider>
+          <NotificationsProvider>
+            <AppContent />
+          </NotificationsProvider>
+        </TripsProvider>
+      </NavigationProvider>
+    </AuthProvider>
   );
 }

@@ -1,12 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
-import { 
-  idProjetoSupabase,
-  chavePublicaAnonima
-} from '../../utils/supabase/info';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 
-export const clienteSupabase = createClient(
-  `https://${idProjetoSupabase}.supabase.co`,
-  chavePublicaAnonima
-);
+// Singleton instance
+let supabaseInstance: SupabaseClient | null = null;
 
-export const API_URL = `https://${idProjetoSupabase}.supabase.co/functions/v1/make-server-474b5592`;
+export function getSupabaseClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(
+      `https://${projectId}.supabase.co`,
+      publicAnonKey
+    );
+  }
+  return supabaseInstance;
+}
+
+// Export default para compatibilidade
+export default getSupabaseClient();
