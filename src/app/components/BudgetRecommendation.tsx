@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Info, Plane, Hotel, Utensils, MapPin, Car, Bus } from 'lucide-react';
-import { projectId } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { calculateTransportCost } from '@/utils/transportCalculator';
 import type { TransportType, FlightClass, BusClass } from '@/types';
+import { useAuth } from '../context/AuthContext';
 
 interface CityBudget {
   city_name: string;
@@ -48,6 +49,7 @@ export function BudgetRecommendation({
   const [transportError, setTransportError] = useState<string | null>(null);
 
   const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) || 1;
+  const { user, getAccessToken } = useAuth();
 
   useEffect(() => {
     fetchCityBudget();
@@ -81,10 +83,18 @@ export function BudgetRecommendation({
   };
 
   const fetchCityBudget = async () => {
+    
     try {
+      const accessToken = await getAccessToken();
       setIsLoading(true);
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/budgets/${encodeURIComponent(destination)}`
+        `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/budgets/${encodeURIComponent(destination)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-User-Token': accessToken,
+          },
+        }
       );
 
       if (response.ok) {
