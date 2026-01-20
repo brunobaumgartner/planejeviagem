@@ -403,12 +403,133 @@ app.post('/make-server-5f5857fb/auth/signup', async (c) => {
 });
 
 // Upgrade to premium
+// Create premium subscription payment (Mercado Pago)
+app.post('/make-server-5f5857fb/premium/create-payment', async (c) => {
+  try {
+    const { userId, plan } = await c.req.json(); // plan: 'monthly' | 'annual'
+
+    if (!userId || !plan) {
+      return c.json({ error: 'userId e plan são obrigatórios' }, 400);
+    }
+
+    // Verificar configurações de preço
+    const config = await kv.get('pricing_config');
+    if (!config) {
+      return c.json({ error: 'Configurações de preço não encontradas' }, 500);
+    }
+
+    // Verificar se está em modo teste
+    if (config.test_mode) {
+      console.log('[Premium Payment] 🧪 MODO TESTE: Upgrade gratuito');
+      
+      // Calcular data de expiração
+      const now = new Date();
+      const premiumUntil = plan === 'monthly' 
+        ? new Date(now.setMonth(now.getMonth() + 1))
+        : new Date(now.setFullYear(now.getFullYear() + 1));
+
+      // Atualizar usuário
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .update({ 
+          role: 'premium',
+          premium_until: premiumUntil.toISOString(),
+          premium_plan: plan,
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('[Premium Payment] Erro ao fazer upgrade:', error);
+        return c.json({ error: 'Erro ao fazer upgrade' }, 500);
+      }
+
+      return c.json({ 
+        success: true, 
+        test_mode: true,
+        message: 'Upgrade realizado com sucesso (modo teste)',
+        premium_until: premiumUntil.toISOString(),
+      });
+    }
+
+    // MODO PRODUÇÃO: Criar preferência no Mercado Pago
+    const accessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+    if (!accessToken) {
+      return c.json({ error: 'Mercado Pago não configurado' }, 500);
+    }
+
+    const amount = plan === 'monthly' 
+      ? config.premium_monthly_price 
+      : config.premium_annual_price;
+
+    const planLabel = plan === 'monthly' ? 'Mensal' : 'Anual';
+
+    // Criar preferência de pagamento
+    const preference = {
+      items: [{
+        title: `Planeje Fácil - Premium ${planLabel}`,
+        description: `Plano premium ${plan === 'monthly' ? 'mensal (30 dias)' : 'anual (365 dias)'}`,
+        quantity: 1,
+        unit_price: amount,
+        currency_id: 'BRL',
+      }],
+      payer: {
+        email: userId, // Será substituído pelo email real
+      },
+      back_urls: {
+        success: `${Deno.env.get('SUPABASE_URL')}/functions/v1/make-server-5f5857fb/premium/callback`,
+        failure: `${Deno.env.get('SUPABASE_URL')}/functions/v1/make-server-5f5857fb/premium/callback`,
+        pending: `${Deno.env.get('SUPABASE_URL')}/functions/v1/make-server-5f5857fb/premium/callback`,
+      },
+      auto_return: 'approved',
+      external_reference: `premium_${userId}_${plan}_${Date.now()}`,
+      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/make-server-5f5857fb/premium/webhook`,
+    };
+
+    const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(preference),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[Premium Payment] Erro do Mercado Pago:', data);
+      return c.json({ error: 'Erro ao criar pagamento' }, 500);
+    }
+
+    console.log('[Premium Payment] ✅ Preferência criada:', data.id);
+
+    return c.json({
+      success: true,
+      test_mode: false,
+      init_point: data.init_point,
+      preference_id: data.id,
+    });
+  } catch (error) {
+    console.error('[Premium Payment] Erro:', error);
+    return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// Legacy route for test mode upgrade (mantido para compatibilidade)
 app.post('/make-server-5f5857fb/auth/upgrade-premium', async (c) => {
   try {
     const { userId } = await c.req.json();
 
     if (!userId) {
       return c.json({ error: 'userId é obrigatório' }, 400);
+    }
+
+    // Verificar se está em modo teste
+    const config = await kv.get('pricing_config');
+    if (!config || !config.test_mode) {
+      return c.json({ 
+        error: 'Modo teste desativado. Use a rota /premium/create-payment' 
+      }, 400);
     }
 
     const { error } = await supabaseAdmin
@@ -728,7 +849,7 @@ app.post('/make-server-5f5857fb/payments/create-premium-checkout', async (c) => 
     const baseUrl = Deno.env.get('SUPABASE_URL') || '';
     const preference = {
       items: [{
-        title: title || 'Upgrade Premium - Planeje Viagem',
+        title: title || 'Upgrade Premium - Planeje Fácil',
         description: description || 'Acesso Premium com planejamentos ilimitados',
         quantity: 1,
         unit_price: amount || 49.90,
@@ -2973,6 +3094,250 @@ app.post('/make-server-5f5857fb/admin/init-international-budgets', async (c) => 
   } catch (error) {
     console.error('[Init] Erro ao inicializar orçamentos:', error);
     return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// ============================================
+// PRICING CONFIG ROUTES
+// ============================================
+
+// Get pricing configuration
+app.get('/make-server-5f5857fb/pricing-config', async (c) => {
+  console.log('[Pricing Config] ========== INÍCIO ==========');
+  
+  // Configuração padrão (fallback)
+  const defaultConfig = {
+    premium_monthly_price: 29.90,
+    premium_annual_price: 299.90,
+    planning_package_price: 49.90,
+    test_mode: true,
+    updated_at: new Date().toISOString(),
+  };
+  
+  try {
+    console.log('[Pricing Config] Tentando buscar do KV...');
+    
+    // Buscar configuração atual ou usar padrões
+    let config = null;
+    
+    try {
+      config = await kv.get('pricing_config');
+      console.log('[Pricing Config] Config do KV:', config);
+    } catch (kvError) {
+      console.error('[Pricing Config] ⚠️ Erro ao acessar KV (continuando com padrão):', kvError);
+      config = null;
+    }
+    
+    if (!config) {
+      console.log('[Pricing Config] Configuração não existe, usando padrão...');
+      config = defaultConfig;
+      
+      // Tentar salvar configuração padrão (não crítico se falhar)
+      try {
+        await kv.set('pricing_config', config);
+        console.log('[Pricing Config] ✅ Configuração padrão salva no KV');
+      } catch (setError) {
+        console.error('[Pricing Config] ⚠️ Não foi possível salvar no KV (não crítico):', setError);
+      }
+    }
+    
+    console.log('[Pricing Config] ✅ Retornando config:', config);
+    return c.json(config);
+  } catch (error) {
+    console.error('[Pricing Config] ❌ ERRO CRÍTICO:', error);
+    console.error('[Pricing Config] Stack:', error?.stack);
+    
+    // Mesmo em caso de erro, retornar config padrão
+    console.log('[Pricing Config] 🔄 Retornando config padrão devido a erro');
+    return c.json(defaultConfig);
+  }
+});
+
+// Update pricing configuration (admin only)
+app.put('/make-server-5f5857fb/pricing-config', async (c) => {
+  try {
+    console.log('[Pricing Config PUT] 🔄 Iniciando atualização de configurações...');
+    console.log('[Pricing Config PUT] Headers:', Object.fromEntries(c.req.raw.headers.entries()));
+    
+    // Verificar autenticação
+    const accessToken = getAccessToken(c);
+    console.log('[Pricing Config PUT] Token extraído:', accessToken ? `${accessToken.substring(0, 20)}...` : 'NULO');
+    
+    if (!accessToken) {
+      console.error('[Pricing Config PUT] ❌ Token ausente');
+      return c.json({ error: 'Não autenticado - token ausente' }, 401);
+    }
+
+    console.log('[Pricing Config PUT] 🔐 Validando token...');
+    // IMPORTANTE: Usar supabaseAnon para validar tokens de usuários
+    const { data: { user }, error: authError } = await supabaseAnon.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      console.error('[Pricing Config PUT] ❌ Erro validação:', authError?.message);
+      console.error('[Pricing Config PUT] ❌ Detalhes:', authError);
+      return c.json({ 
+        error: 'Token inválido', 
+        details: authError?.message 
+      }, 401);
+    }
+
+    console.log('[Pricing Config PUT] ✅ Usuário autenticado:', user.email);
+    console.log('[Pricing Config PUT] ✅ User ID:', user.id);
+
+    // Verificar se é admin usando supabaseAdmin para acessar a tabela profiles
+    console.log('[Pricing Config PUT] 🔍 Verificando permissão admin...');
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role, email')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('[Pricing Config PUT] ❌ Erro ao buscar profile:', profileError);
+      return c.json({ error: 'Erro ao verificar permissões' }, 500);
+    }
+
+    console.log('[Pricing Config PUT] Profile encontrado:', profile);
+
+    const adminEmails = ['admin@planejefacil.com', 'suporte@planejefacil.com', 'teste@planejefacil.com'];
+    if (!adminEmails.includes(profile?.email || '')) {
+      console.error('[Pricing Config PUT] ❌ Acesso negado para:', profile?.email);
+      return c.json({ error: 'Acesso negado - não é admin' }, 403);
+    }
+
+    console.log('[Pricing Config PUT] ✅ Admin verificado:', profile.email);
+
+    const updates = await c.req.json();
+    
+    // Validar dados
+    if (updates.premium_monthly_price !== undefined && updates.premium_monthly_price <= 0) {
+      return c.json({ error: 'Preço mensal deve ser maior que zero' }, 400);
+    }
+    if (updates.premium_annual_price !== undefined && updates.premium_annual_price <= 0) {
+      return c.json({ error: 'Preço anual deve ser maior que zero' }, 400);
+    }
+    if (updates.planning_package_price !== undefined && updates.planning_package_price <= 0) {
+      return c.json({ error: 'Preço do pacote deve ser maior que zero' }, 400);
+    }
+
+    // Buscar config atual
+    const currentConfig = await kv.get('pricing_config') || {};
+    
+    // Atualizar
+    const newConfig = {
+      ...currentConfig,
+      ...updates,
+      updated_at: new Date().toISOString(),
+      updated_by: profile.email,
+    };
+    
+    await kv.set('pricing_config', newConfig);
+    
+    console.log('[Pricing Config] ✅ Configurações atualizadas:', newConfig);
+    return c.json(newConfig);
+  } catch (error) {
+    console.error('[Pricing Config] Erro ao atualizar:', error);
+    return c.json({ error: 'Erro ao atualizar configurações' }, 500);
+  }
+});
+
+// ============================================
+// PREMIUM PAYMENT WEBHOOKS
+// ============================================
+
+// Webhook do Mercado Pago para pagamentos premium
+app.post('/make-server-5f5857fb/premium/webhook', async (c) => {
+  try {
+    const body = await c.req.json();
+    console.log('[Premium Webhook] Recebido:', JSON.stringify(body, null, 2));
+
+    // Mercado Pago envia notificações de diferentes tipos
+    if (body.type === 'payment') {
+      const paymentId = body.data?.id;
+      
+      if (!paymentId) {
+        console.error('[Premium Webhook] Payment ID não encontrado');
+        return c.json({ received: true });
+      }
+
+      // Buscar detalhes do pagamento
+      const accessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+      const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      const payment = await paymentResponse.json();
+      console.log('[Premium Webhook] Payment details:', payment.status, payment.external_reference);
+
+      // Processar apenas pagamentos aprovados
+      if (payment.status === 'approved') {
+        // External reference format: premium_userId_plan_timestamp
+        const parts = payment.external_reference?.split('_');
+        if (parts && parts[0] === 'premium') {
+          const userId = parts[1];
+          const plan = parts[2]; // 'monthly' ou 'annual'
+
+          // Calcular data de expiração
+          const now = new Date();
+          const premiumUntil = plan === 'monthly'
+            ? new Date(now.setMonth(now.getMonth() + 1))
+            : new Date(now.setFullYear(now.getFullYear() + 1));
+
+          // Atualizar perfil do usuário
+          const { error } = await supabaseAdmin
+            .from('profiles')
+            .update({
+              role: 'premium',
+              premium_until: premiumUntil.toISOString(),
+              premium_plan: plan,
+            })
+            .eq('id', userId);
+
+          if (error) {
+            console.error('[Premium Webhook] Erro ao atualizar usuário:', error);
+          } else {
+            console.log('[Premium Webhook] ✅ Usuário atualizado para premium:', userId, 'até', premiumUntil);
+            
+            // Criar notificação
+            await kv.set(`notification:premium_${userId}_${Date.now()}`, {
+              id: `premium_${userId}_${Date.now()}`,
+              user_id: userId,
+              type: 'success',
+              title: 'Premium Ativado!',
+              message: `Seu plano premium ${plan === 'monthly' ? 'mensal' : 'anual'} foi ativado com sucesso!`,
+              read: false,
+              created_at: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    return c.json({ received: true });
+  } catch (error) {
+    console.error('[Premium Webhook] Erro:', error);
+    return c.json({ received: true }); // Sempre retornar sucesso para não bloquear o Mercado Pago
+  }
+});
+
+// Callback de retorno do Mercado Pago
+app.get('/make-server-5f5857fb/premium/callback', async (c) => {
+  try {
+    const status = c.req.query('status') || c.req.query('collection_status');
+    const preferenceId = c.req.query('preference_id');
+    
+    console.log('[Premium Callback] Status:', status, 'Preference:', preferenceId);
+
+    // Redirecionar para a aplicação com o status
+    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:5173';
+    const redirectUrl = `${appUrl}?premium_status=${status}`;
+    
+    return c.redirect(redirectUrl);
+  } catch (error) {
+    console.error('[Premium Callback] Erro:', error);
+    return c.json({ error: 'Erro no callback' }, 500);
   }
 });
 

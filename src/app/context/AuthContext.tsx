@@ -240,11 +240,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: 'https://planejeviagem.com.br/',
         },
       });
 
       if (error) {
+        console.error('Google sign in error:', error);
+        
+        // Erro específico quando o provedor não está habilitado
+        if (error.message?.includes('provider is not enabled') || error.message?.includes('Unsupported provider')) {
+          return { 
+            error: 'Login com Google não configurado. Acesse o painel do Supabase em Authentication > Providers > Google e configure as credenciais OAuth.' 
+          };
+        }
+        
         return { error: 'Erro ao fazer login com Google' };
       }
 
