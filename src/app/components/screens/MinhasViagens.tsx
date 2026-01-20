@@ -4,13 +4,14 @@ import type { TaskAttachment } from '@/types';
 import { useState, useEffect } from "react";
 import { 
   ChevronRight, MoreVertical, ArrowLeft,
-  RotateCcw, Share, MoreHorizontal, Sparkles, Edit3, Plane
+  RotateCcw, Share, MoreHorizontal, Sparkles, Edit3, Plane, Edit2
 } from "lucide-react";
 import { BottomNavigation } from "../BottomNavigation";
 import { useTrips } from "@/app/context/TripsContext";
 import { useAuth } from "@/app/context/AuthContext";
 import { useNavigation } from "@/app/context/NavigationContext";
 import { AddTripModal } from "../AddTripModal";
+import { EditTripModal } from "../EditTripModal";
 import { AddTaskModal } from "../AddTaskModal";
 import { PurchasePlanningModal } from "../PurchasePlanningModal";
 import { ItineraryEditor } from "../ItineraryEditor";
@@ -24,6 +25,8 @@ export function MinhasViagens() {
   const { user } = useAuth();
   const { setCurrentScreen } = useNavigation();
   const [showAddTripModal, setShowAddTripModal] = useState(false);
+  const [showEditTripModal, setShowEditTripModal] = useState(false);
+  const [selectedTripForEdit, setSelectedTripForEdit] = useState<Trip | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showItineraryEditor, setShowItineraryEditor] = useState(false);
@@ -164,7 +167,18 @@ export function MinhasViagens() {
                 </div>
 
                 {expandedTrip === trip.id && (
-                  <div className="mb-3 p-3 bg-red-50 rounded-lg">
+                  <div className="mb-3 p-3 bg-gray-50 rounded-lg space-y-2">
+                    <button
+                      onClick={() => {
+                        setSelectedTripForEdit(trip);
+                        setShowEditTripModal(true);
+                        setExpandedTrip(null);
+                      }}
+                      className="flex items-center gap-2 text-sky-600 hover:text-sky-700 w-full"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      <span className="text-sm">Editar viagem</span>
+                    </button>
                     <button
                       onClick={() => {
                         if (confirm(`Deseja realmente excluir a viagem para ${trip.destination}?`)) {
@@ -327,6 +341,20 @@ export function MinhasViagens() {
         isOpen={showAddTripModal}
         onClose={() => setShowAddTripModal(false)}
         onSubmit={addTrip}
+      />
+
+      <EditTripModal
+        isOpen={showEditTripModal}
+        onClose={() => {
+          setShowEditTripModal(false);
+          setSelectedTripForEdit(null);
+        }}
+        onSubmit={(tripData) => {
+          if (selectedTripForEdit) {
+            updateTrip(selectedTripForEdit.id, tripData);
+          }
+        }}
+        trip={selectedTripForEdit}
       />
 
       <AddTaskModal
