@@ -7,6 +7,8 @@ export interface User {
   name: string;
   role: UserRole;
   createdAt: string;
+  premiumUntil?: string; // Data de expiração do premium (ISO string)
+  premiumPlan?: 'monthly' | 'annual'; // Tipo de plano premium
 }
 
 // Trip Types
@@ -189,3 +191,25 @@ export interface TripDocument {
 }
 
 export type TripDocumentCreate = Omit<TripDocument, 'id' | 'uploaded_at'>;
+
+// ============================================
+// SISTEMA DE CONFIGURAÇÕES DE PREÇOS
+// ============================================
+
+export interface PricingConfig {
+  // Planos Premium
+  premium_monthly_price: number;
+  premium_annual_price: number;
+  
+  // Pacote de planejamento de viagem
+  planning_package_price: number;
+  
+  // Modo de teste (gratuito)
+  test_mode: boolean;
+  
+  // Última atualização
+  updated_at: string;
+  updated_by?: string;
+}
+
+export type PricingConfigUpdate = Partial<Omit<PricingConfig, 'updated_at'>>;

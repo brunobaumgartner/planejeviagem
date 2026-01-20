@@ -17,6 +17,7 @@ import { useTrips } from '@/app/context/TripsContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigation } from '@/app/context/NavigationContext';
 import { EditProfileModal } from '@/app/components/EditProfileModal';
+import { UpgradePremiumModal } from '@/app/components/UpgradePremiumModal';
 import { useState } from 'react';
 
 export function Perfil() {
@@ -25,6 +26,7 @@ export function Perfil() {
   const { setCurrentScreen } = useNavigation();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Lista de emails admin
   const ADMIN_EMAILS = [
@@ -189,7 +191,7 @@ export function Perfil() {
               </li>
             </ul>
             <button
-              onClick={handleUpgradeToPremium}
+              onClick={() => setShowUpgradeModal(true)}
               disabled={isUpgrading}
               className="w-full bg-white text-amber-500 py-3 rounded-lg font-bold hover:bg-amber-50 transition-colors disabled:opacity-50"
             >
@@ -319,6 +321,12 @@ export function Perfil() {
       <EditProfileModal 
         isOpen={isEditProfileOpen} 
         onClose={() => setIsEditProfileOpen(false)} 
+      />
+      
+      {/* Upgrade Premium Modal */}
+      <UpgradePremiumModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
       />
     </div>
   );

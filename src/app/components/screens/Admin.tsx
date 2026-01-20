@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigation } from '@/app/context/NavigationContext';
-import { Users, Package, CreditCard, DollarSign, ArrowLeft, Activity, Database, AlertTriangle } from 'lucide-react';
+import { Users, Package, CreditCard, DollarSign, ArrowLeft, Activity, Database, AlertTriangle, Settings } from 'lucide-react';
 import { UsersList } from '@/app/components/admin/UsersList';
 import { TripsList } from '@/app/components/admin/TripsList';
 import { PurchasesList } from '@/app/components/admin/PurchasesList';
@@ -9,6 +9,7 @@ import { BudgetEditor } from '@/app/components/admin/BudgetEditor';
 import { ServiceStatus } from '@/app/components/admin/ServiceStatus';
 import { DataUpdater } from '@/app/components/DataUpdater';
 import { DiagnosticPanel } from '@/app/components/admin/DiagnosticPanel';
+import { PricingConfig } from '@/app/components/admin/PricingConfig';
 
 // Lista de admins autorizados (por email)
 const ADMIN_EMAILS = [
@@ -17,7 +18,7 @@ const ADMIN_EMAILS = [
   'teste@planejefacil.com', // Para testes
 ];
 
-type AdminTab = 'status' | 'users' | 'trips' | 'purchases' | 'budgets' | 'data' | 'diagnostic';
+type AdminTab = 'status' | 'users' | 'trips' | 'purchases' | 'budgets' | 'data' | 'diagnostic' | 'pricing';
 
 export function Admin() {
   const { user, isLoading } = useAuth();
@@ -59,6 +60,7 @@ export function Admin() {
     { id: 'budgets' as AdminTab, label: 'Orçamentos', icon: DollarSign },
     { id: 'data' as AdminTab, label: 'Dados', icon: Database },
     { id: 'diagnostic' as AdminTab, label: 'Diagnóstico', icon: AlertTriangle },
+    { id: 'pricing' as AdminTab, label: 'Preços', icon: Settings },
   ];
 
   return (
@@ -77,7 +79,7 @@ export function Admin() {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Painel Admin</h1>
-                <p className="text-sm text-gray-500">Gerenciamento do Planeje Viagem</p>
+                <p className="text-sm text-gray-500">Gerenciamento do Planeje Fácil</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -127,6 +129,7 @@ export function Admin() {
         {currentTab === 'budgets' && <BudgetEditor />}
         {currentTab === 'data' && <DataUpdater />}
         {currentTab === 'diagnostic' && <DiagnosticPanel />}
+        {currentTab === 'pricing' && <PricingConfig />}
       </div>
     </div>
   );
