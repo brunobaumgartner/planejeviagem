@@ -16,6 +16,7 @@ import { AddTaskModal } from "../AddTaskModal";
 import { PurchasePlanningModal } from "../PurchasePlanningModal";
 import { ItineraryEditor } from "../ItineraryEditor";
 import { ShareTripModal } from "../ShareTripModal";
+import { PackingListModal } from "../PackingListModal";
 import { Logo } from "../Logo";
 import { LoadingState } from "@/app/components/ui/LoadingState";
 import { EmptyState } from "@/app/components/ui/EmptyState";
@@ -36,6 +37,8 @@ export function MinhasViagens() {
   const [selectedTripForItinerary, setSelectedTripForItinerary] = useState<Trip | null>(null);
   const [selectedTripForShare, setSelectedTripForShare] = useState<Trip | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedTripForPacking, setSelectedTripForPacking] = useState<Trip | null>(null);
+  const [showPackingModal, setShowPackingModal] = useState(false);
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [hasCheckedAutoOpen, setHasCheckedAutoOpen] = useState(false);
@@ -161,57 +164,65 @@ export function MinhasViagens() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setExpandedTrip(expandedTrip === trip.id ? null : trip.id)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <MoreVertical className="w-5 h-5 text-gray-400" />
-                  </button>
                 </div>
 
-                {expandedTrip === trip.id && (
-                  <div className="mb-3 p-3 bg-gray-50 rounded-lg space-y-2">
+                {/* Botões de ação - sempre visíveis */}
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  <button
+                    onClick={() => {
+                      setSelectedTripForEdit(trip);
+                      setShowEditTripModal(true);
+                    }}
+                    className="flex flex-col items-center gap-1 px-2 py-2 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    <span className="text-xs font-medium">Editar</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setSelectedTripForPacking(trip);
+                      setShowPackingModal(true);
+                    }}
+                    className="flex flex-col items-center gap-1 px-2 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span className="text-xs font-medium">Bagagem</span>
+                  </button>
+                  
+                  {/* Botão compartilhar - apenas para usuários logados */}
+                  {user && user.role !== 'guest' ? (
                     <button
                       onClick={() => {
-                        setSelectedTripForEdit(trip);
-                        setShowEditTripModal(true);
-                        setExpandedTrip(null);
+                        setSelectedTripForShare(trip);
+                        setShowShareModal(true);
                       }}
-                      className="flex items-center gap-2 text-sky-600 hover:text-sky-700 w-full"
+                      className="flex flex-col items-center gap-1 px-2 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
                     >
-                      <Edit2 className="w-4 h-4" />
-                      <span className="text-sm">Editar viagem</span>
+                      <Share2 className="w-4 h-4" />
+                      <span className="text-xs font-medium">Compartilhar</span>
                     </button>
-                    
-                    {/* Botão compartilhar - apenas para usuários logados */}
-                    {user && user.role !== 'guest' && (
-                      <button
-                        onClick={() => {
-                          setSelectedTripForShare(trip);
-                          setShowShareModal(true);
-                          setExpandedTrip(null);
-                        }}
-                        className="flex items-center gap-2 text-green-600 hover:text-green-700 w-full"
-                      >
+                  ) : (
+                    <div className="opacity-50 cursor-not-allowed">
+                      <div className="flex flex-col items-center gap-1 px-2 py-2 bg-gray-50 text-gray-400 rounded-lg">
                         <Share2 className="w-4 h-4" />
-                        <span className="text-sm">Compartilhar viagem</span>
-                      </button>
-                    )}
-                    
-                    <button
-                      onClick={() => {
-                        if (confirm(`Deseja realmente excluir a viagem para ${trip.destination}?`)) {
-                          deleteTrip(trip.id);
-                          setExpandedTrip(null);
-                        }
-                      }}
-                      className="flex items-center gap-2 text-red-600 hover:text-red-700 w-full"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="text-sm">Excluir viagem</span>
-                    </button>
-                  </div>
-                )}
+                        <span className="text-xs font-medium">Compartilhar</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={() => {
+                      if (confirm(`Deseja realmente excluir a viagem para ${trip.destination}?`)) {
+                        deleteTrip(trip.id);
+                      }
+                    }}
+                    className="flex flex-col items-center gap-1 px-2 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="text-xs font-medium">Excluir</span>
+                  </button>
+                </div>
 
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-sm mb-1">
@@ -240,7 +251,7 @@ export function MinhasViagens() {
                       <span>Comprar Planejamento Personalizado</span>
                     </button>
                     <p className="text-xs text-center text-gray-500 mt-1">
-                      R$ 1,00 • Entrega em até 48h úteis
+                      R$ 299,90 • Entrega em até 48h úteis
                     </p>
                   </div>
                 )}
@@ -324,8 +335,7 @@ export function MinhasViagens() {
                               deleteTask(trip.id, task.id);
                             }
                           }}
-                          // Removido pois no celular não aparecia o hover
-                          // className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -413,6 +423,20 @@ export function MinhasViagens() {
           setSelectedTripForShare(null);
         }}
         trip={selectedTripForShare}
+      />
+      
+      <PackingListModal
+        isOpen={showPackingModal}
+        onClose={() => {
+          setShowPackingModal(false);
+          setSelectedTripForPacking(null);
+        }}
+        trip={selectedTripForPacking}
+        onUpdate={(packingItems) => {
+          if (selectedTripForPacking) {
+            updateTrip(selectedTripForPacking.id, { packingItems });
+          }
+        }}
       />
     </div>
   );

@@ -41,9 +41,9 @@ export function Home() {
       {/* Main Content */}
       <main className="px-4 pt-6">
         {/* Search Bar */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <SearchBar placeholder="Para onde você quer ir ou quanto quer gastar?" />
-        </div>
+        </div> */}
 
         {/* Hero Section */}
         <div className="text-center mb-8">

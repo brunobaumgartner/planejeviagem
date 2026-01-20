@@ -76,6 +76,7 @@ export interface Trip {
   transportPreferences?: TransportPreferences; // Preferências de transporte
   progress: number;
   tasks: Task[];
+  packingItems?: PackingItem[]; // Lista de bagagem da viagem
   itinerary?: ItineraryDay[]; // Only for premium or purchased trips
   status: TripStatus;
   purchaseId?: string; // If planning was purchased
