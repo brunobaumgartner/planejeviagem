@@ -62,8 +62,13 @@ export interface TransportPreferences {
 export interface Trip {
   id: string;
   userId?: string; // null for guest trips
+  ownerId?: string; // ID do dono original da viagem
+  isShared?: boolean; // Se a viagem foi compartilhada com este usuário
+  sharedBy?: string; // ID de quem compartilhou
+  permission?: 'view' | 'edit'; // Permissão do usuário atual (se for compartilhada)
   destination: string;
   origin?: string; // Cidade de origem
+  country?: string; // País do destino
   startDate: string;
   endDate: string;
   budget: string;

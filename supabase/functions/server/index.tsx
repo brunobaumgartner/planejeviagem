@@ -553,6 +553,56 @@ app.delete('/make-server-5f5857fb/trips/:tripId', async (c) => {
 });
 
 // ============================================
+// SHARED TRIPS ROUTES
+// ============================================
+
+// Save shared trip
+app.post('/make-server-5f5857fb/shared-trips', async (c) => {
+  try {
+    const { tripId, tripData, shareToken } = await c.req.json();
+    
+    if (!tripId || !tripData || !shareToken) {
+      return c.json({ error: 'tripId, tripData e shareToken são obrigatórios' }, 400);
+    }
+
+    console.log('[SHARED TRIP] Salvando viagem compartilhada:', tripId);
+
+    // Save to KV store
+    await kv.set(`shared_trip:${tripId}`, {
+      ...tripData,
+      shareToken,
+      sharedAt: new Date().toISOString()
+    });
+
+    console.log('[SHARED TRIP] ✅ Viagem compartilhada salva com sucesso');
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('[SHARED TRIP] Erro:', error);
+    return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// Get shared trip
+app.get('/make-server-5f5857fb/shared-trips/:tripId', async (c) => {
+  try {
+    const tripId = c.req.param('tripId');
+    console.log('[GET SHARED TRIP] Buscando viagem compartilhada:', tripId);
+
+    const sharedTrip = await kv.get(`shared_trip:${tripId}`);
+    
+    if (!sharedTrip) {
+      return c.json({ error: 'Viagem compartilhada não encontrada' }, 404);
+    }
+
+    console.log('[GET SHARED TRIP] ✅ Viagem encontrada');
+    return c.json({ trip: sharedTrip });
+  } catch (error) {
+    console.error('[GET SHARED TRIP] Erro:', error);
+    return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// ============================================
 // PURCHASES ROUTES
 // ============================================
 
@@ -678,7 +728,7 @@ app.post('/make-server-5f5857fb/payments/create-premium-checkout', async (c) => 
     const baseUrl = Deno.env.get('SUPABASE_URL') || '';
     const preference = {
       items: [{
-        title: title || 'Upgrade Premium - Planeje Fácil',
+        title: title || 'Upgrade Premium - Planeje Viagem',
         description: description || 'Acesso Premium com planejamentos ilimitados',
         quantity: 1,
         unit_price: amount || 49.90,

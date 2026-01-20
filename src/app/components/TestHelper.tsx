@@ -267,7 +267,7 @@ export function TestHelper() {
         'Crie uma viagem primeiro (modo Logado)',
         'Na lista, clique em "Comprar Planejamento Personalizado"',
         'Modal exibe benefícios: roteiro completo, checklist, recomendações',
-        'Preço: R$ 299,90',
+        'Preço: R$ 1,00',
         'Clique em "Comprar Agora"',
         'Aguarde redirecionamento ao Mercado Pago',
       ],

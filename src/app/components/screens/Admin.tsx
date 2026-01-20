@@ -77,7 +77,7 @@ export function Admin() {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Painel Admin</h1>
-                <p className="text-sm text-gray-500">Gerenciamento do Planeje Fácil</p>
+                <p className="text-sm text-gray-500">Gerenciamento do Planeje Viagem</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

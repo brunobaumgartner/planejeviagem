@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Plus, Calendar, MapPin, Trash2, DollarSign, Package, AlertCircle, Clock, CreditCard } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Calendar, MapPin, Trash2, DollarSign, Package, AlertCircle, Clock, CreditCard, Share2 } from "lucide-react";
 import { TaskAttachments } from '@/app/components/TaskAttachments';
 import type { TaskAttachment } from '@/types';
 import { useState, useEffect } from "react";
@@ -15,6 +15,7 @@ import { EditTripModal } from "../EditTripModal";
 import { AddTaskModal } from "../AddTaskModal";
 import { PurchasePlanningModal } from "../PurchasePlanningModal";
 import { ItineraryEditor } from "../ItineraryEditor";
+import { ShareTripModal } from "../ShareTripModal";
 import { Logo } from "../Logo";
 import { LoadingState } from "@/app/components/ui/LoadingState";
 import { EmptyState } from "@/app/components/ui/EmptyState";
@@ -33,6 +34,8 @@ export function MinhasViagens() {
   const [selectedTripForTask, setSelectedTripForTask] = useState<string | null>(null);
   const [selectedTripForPurchase, setSelectedTripForPurchase] = useState<Trip | null>(null);
   const [selectedTripForItinerary, setSelectedTripForItinerary] = useState<Trip | null>(null);
+  const [selectedTripForShare, setSelectedTripForShare] = useState<Trip | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [hasCheckedAutoOpen, setHasCheckedAutoOpen] = useState(false);
@@ -179,6 +182,22 @@ export function MinhasViagens() {
                       <Edit2 className="w-4 h-4" />
                       <span className="text-sm">Editar viagem</span>
                     </button>
+                    
+                    {/* Botão compartilhar - apenas para usuários logados */}
+                    {user && user.role !== 'guest' && (
+                      <button
+                        onClick={() => {
+                          setSelectedTripForShare(trip);
+                          setShowShareModal(true);
+                          setExpandedTrip(null);
+                        }}
+                        className="flex items-center gap-2 text-green-600 hover:text-green-700 w-full"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span className="text-sm">Compartilhar viagem</span>
+                      </button>
+                    )}
+                    
                     <button
                       onClick={() => {
                         if (confirm(`Deseja realmente excluir a viagem para ${trip.destination}?`)) {
@@ -221,7 +240,7 @@ export function MinhasViagens() {
                       <span>Comprar Planejamento Personalizado</span>
                     </button>
                     <p className="text-xs text-center text-gray-500 mt-1">
-                      R$ 299,90 • Entrega em até 48h úteis
+                      R$ 1,00 • Entrega em até 48h úteis
                     </p>
                   </div>
                 )}
@@ -305,7 +324,8 @@ export function MinhasViagens() {
                               deleteTask(trip.id, task.id);
                             }
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
+                          // Removido pois no celular não aparecia o hover
+                          // className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -384,6 +404,15 @@ export function MinhasViagens() {
         }}
         trip={selectedTripForItinerary}
         onSave={handleSaveItinerary}
+      />
+      
+      <ShareTripModal
+        isOpen={showShareModal}
+        onClose={() => {
+          setShowShareModal(false);
+          setSelectedTripForShare(null);
+        }}
+        trip={selectedTripForShare}
       />
     </div>
   );

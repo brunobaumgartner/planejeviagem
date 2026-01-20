@@ -262,7 +262,7 @@ export function Roteiro() {
                   </h3>
                   <p className="text-sm text-gray-700">
                     Nossa equipe cria um roteiro completo e personalizado para sua
-                    viagem por apenas R$ 299,90
+                    viagem por apenas R$ 1,00
                   </p>
                 </div>
               </div>

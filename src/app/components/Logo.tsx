@@ -57,7 +57,7 @@ export function Logo({ size = 40, variant = "full", className = "" }: LogoProps)
   if (variant === "text") {
     return (
       <span className={`text-lg font-medium ${className}`}>
-        Planeje Fácil
+        Planeje Viagem
       </span>
     );
   }
@@ -90,7 +90,7 @@ export function Logo({ size = 40, variant = "full", className = "" }: LogoProps)
         <circle cx="60" cy="55" r="4" fill="currentColor" opacity="0.8" />
         <circle cx="25" cy="55" r="5" fill="currentColor" />
       </svg>
-      <span className="text-lg">Planeje Fácil</span>
+      <span className="text-lg">Planeje Viagem</span>
     </div>
   );
 }
@@ -263,7 +263,7 @@ export function LogoSplash({ className = "" }: { className?: string }) {
       </div>
       
       <div className="text-center animate-fade-in" style={{ animationDelay: '1.5s' }}>
-        <h1 className="text-3xl text-gray-800 mb-1">Planeje Fácil</h1>
+        <h1 className="text-3xl text-gray-800 mb-1">Planeje Viagem</h1>
         <p className="text-sm text-gray-600">Viajar pode ser leve</p>
       </div>
     </div>
