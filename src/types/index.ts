@@ -11,6 +11,40 @@ export interface User {
   premiumPlan?: 'monthly' | 'annual'; // Tipo de plano premium
 }
 
+// Wikipedia/Cultural Guide Types
+export interface WikiArticle {
+  title: string;
+  extract: string;
+  fullUrl: string;
+  thumbnail?: string;
+  language: 'pt' | 'en' | 'es';
+  lastModified?: string;
+}
+
+export interface WikiSection {
+  title: string;
+  content: string;
+  level: number;
+}
+
+export interface WikiImage {
+  url: string;
+  title: string;
+  description?: string;
+}
+
+export interface CityGuide {
+  cityName: string;
+  summary: string;
+  history?: string;
+  culture?: string;
+  tourism?: string;
+  tips?: string[];
+  images: WikiImage[];
+  article: WikiArticle;
+  sections: WikiSection[];
+}
+
 // Trip Types
 export interface TaskAttachment {
   id: string;
@@ -213,3 +247,175 @@ export interface PricingConfig {
 }
 
 export type PricingConfigUpdate = Partial<Omit<PricingConfig, 'updated_at'>>;
+
+// ============================================
+// SISTEMA DE VIAGENS INTERNACIONAIS
+// ============================================
+
+// REST Countries API Types
+export interface Country {
+  name: {
+    common: string; // Nome comum (ex: "Brazil")
+    official: string; // Nome oficial (ex: "Federative Republic of Brazil")
+    nativeName: Record<string, { official: string; common: string }>;
+  };
+  cca2: string; // Código de 2 letras (ex: "BR")
+  cca3: string; // Código de 3 letras (ex: "BRA")
+  capital?: string[]; // Capitais do país
+  region: string; // Região (ex: "Americas")
+  subregion?: string; // Sub-região (ex: "South America")
+  languages?: Record<string, string>; // Idiomas (ex: { "por": "Portuguese" })
+  currencies?: Record<string, { name: string; symbol: string }>; // Moedas
+  flag: string; // Emoji da bandeira
+  flags: {
+    png: string;
+    svg: string;
+    alt?: string;
+  };
+  coatOfArms?: {
+    png?: string;
+    svg?: string;
+  };
+  population: number;
+  area?: number; // Área em km²
+  timezones: string[]; // Fusos horários
+  borders?: string[]; // Países vizinhos (códigos)
+  latlng: [number, number]; // Coordenadas [lat, lng]
+  car: {
+    side: 'left' | 'right'; // Lado da direção
+  };
+  idd: {
+    root: string; // Código de discagem (ex: "+55")
+    suffixes?: string[];
+  };
+  tld?: string[]; // Top-level domain (ex: [".br"])
+  independent?: boolean;
+  landlocked?: boolean; // Sem saída para o mar
+}
+
+// ExchangeRate-API Types
+export interface ExchangeRate {
+  base: string; // Moeda base (ex: "BRL")
+  target: string; // Moeda alvo (ex: "USD")
+  rate: number; // Taxa de câmbio
+  lastUpdate: string; // ISO timestamp da última atualização
+}
+
+export interface ExchangeRatesResponse {
+  result: string; // "success" | "error"
+  base_code: string; // Código da moeda base
+  time_last_update_unix: number;
+  time_last_update_utc: string;
+  time_next_update_unix: number;
+  time_next_update_utc: string;
+  conversion_rates: Record<string, number>; // { "USD": 0.20, "EUR": 0.18, ... }
+}
+
+// Overpass API Types (OpenStreetMap)
+export interface OverpassElement {
+  type: 'node' | 'way' | 'relation';
+  id: number;
+  lat?: number;
+  lon?: number;
+  tags?: Record<string, string>; // { "name": "Eiffel Tower", "tourism": "attraction", ... }
+  center?: { lat: number; lon: number }; // Para ways/relations
+}
+
+export interface TouristAttraction {
+  id: string;
+  name: string;
+  type: string; // museum, monument, viewpoint, etc
+  lat: number;
+  lon: number;
+  address?: string;
+  website?: string;
+  openingHours?: string;
+  phone?: string;
+  wikipedia?: string;
+  rating?: number;
+  description?: string; // From Wikipedia
+  image?: string; // From Wikipedia
+}
+
+// Wikipedia API Types
+export interface WikipediaSummary {
+  title: string;
+  extract: string; // Resumo (texto)
+  thumbnail?: {
+    source: string;
+    width: number;
+    height: number;
+  };
+  coordinates?: {
+    lat: number;
+    lon: number;
+  };
+  pageUrl: string;
+}
+
+// International City Data
+export interface InternationalCity {
+  id: string;
+  name: string;
+  country: string; // Nome do país
+  countryCode: string; // Código ISO (ex: "FR")
+  region: string; // Região (ex: "Europe")
+  lat: number;
+  lon: number;
+  population?: number;
+  timezone: string;
+  currency: string; // Código da moeda (ex: "EUR")
+  currencySymbol: string; // Símbolo (ex: "€")
+  language: string; // Idioma principal
+  flagEmoji: string; // Emoji da bandeira
+  flagUrl: string; // URL da bandeira (SVG)
+}
+
+// Extended Trip with International Support
+export interface InternationalTrip extends Trip {
+  isInternational: boolean; // Se é viagem internacional
+  countryCode?: string; // Código do país de destino
+  destinationCurrency?: string; // Moeda do destino
+  exchangeRate?: number; // Taxa de câmbio (BRL → moeda local)
+  budgetInLocalCurrency?: number; // Orçamento na moeda local
+  culturalInfo?: WikipediaSummary; // Informações culturais
+  attractions?: TouristAttraction[]; // Pontos turísticos
+  emergencyInfo?: {
+    police: string;
+    ambulance: string;
+    fire: string;
+    consulate?: string;
+  };
+}
+
+// Cache Types
+export interface CachedData<T> {
+  data: T;
+  timestamp: number;
+  expiresAt: number;
+}
+
+// API Response Wrappers
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  cached?: boolean; // Se veio do cache
+}
+
+// Search Types
+export interface CountrySearchResult {
+  code: string; // Código ISO
+  name: string;
+  flag: string; // Emoji
+  region: string;
+}
+
+export interface CitySearchResult {
+  id: string;
+  name: string;
+  country: string;
+  countryCode: string;
+  flag: string;
+  population?: number;
+}

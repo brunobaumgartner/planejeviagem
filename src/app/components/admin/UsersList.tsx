@@ -46,6 +46,7 @@ export function UsersList() {
 
       // CORREÇÃO: Usar publicAnonKey no Authorization e accessToken no X-User-Token
       const headers = {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${publicAnonKey}`,
         'X-User-Token': accessToken,
       };

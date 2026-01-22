@@ -43,6 +43,7 @@ export function PurchasesList() {
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/admin/purchases`,
         {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
             'X-User-Token': accessToken || '',
           },

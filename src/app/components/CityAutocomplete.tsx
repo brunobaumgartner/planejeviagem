@@ -1,49 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-
-// Lista de cidades populares do mundo para autocomplete
-const WORLD_CITIES = [
-  // Brasil
-  "São Paulo, Brasil", "Rio de Janeiro, Brasil", "Brasília, Brasil", "Salvador, Brasil",
-  "Fortaleza, Brasil", "Belo Horizonte, Brasil", "Manaus, Brasil", "Curitiba, Brasil",
-  "Recife, Brasil", "Porto Alegre, Brasil", "Belém, Brasil", "Goiânia, Brasil",
-  "Guarulhos, Brasil", "Campinas, Brasil", "São Luís, Brasil", "Maceió, Brasil",
-  "Natal, Brasil", "João Pessoa, Brasil", "Florianópolis, Brasil", "Vitória, Brasil",
-  
-  // Europa
-  "Lisboa, Portugal", "Porto, Portugal", "Madrid, Espanha", "Barcelona, Espanha",
-  "Paris, França", "Londres, Reino Unido", "Roma, Itália", "Milão, Itália",
-  "Berlim, Alemanha", "Munique, Alemanha", "Amsterdã, Holanda", "Bruxelas, Bélgica",
-  "Viena, Áustria", "Praga, República Tcheca", "Budapeste, Hungria", "Atenas, Grécia",
-  "Dublin, Irlanda", "Copenhague, Dinamarca", "Estocolmo, Suécia", "Oslo, Noruega",
-  "Helsinque, Finlândia", "Varsóvia, Polônia", "Zurique, Suíça", "Genebra, Suíça",
-  
-  // América do Norte
-  "Nova York, Estados Unidos", "Los Angeles, Estados Unidos", "Chicago, Estados Unidos",
-  "Miami, Estados Unidos", "São Francisco, Estados Unidos", "Las Vegas, Estados Unidos",
-  "Washington, Estados Unidos", "Boston, Estados Unidos", "Seattle, Estados Unidos",
-  "Orlando, Estados Unidos", "Toronto, Canadá", "Vancouver, Canadá", "Montreal, Canadá",
-  "Cidade do México, México", "Cancún, México", "Guadalajara, México",
-  
-  // América do Sul
-  "Buenos Aires, Argentina", "Córdoba, Argentina", "Mendoza, Argentina",
-  "Santiago, Chile", "Lima, Peru", "Cusco, Peru", "Bogotá, Colômbia",
-  "Cartagena, Colômbia", "Medellín, Colômbia", "Quito, Equador", "Montevidéu, Uruguai",
-  "Caracas, Venezuela", "La Paz, Bolívia",
-  
-  // Ásia
-  "Tóquio, Japão", "Osaka, Japão", "Kyoto, Japão", "Pequim, China", "Xangai, China",
-  "Hong Kong, China", "Seul, Coreia do Sul", "Bangkok, Tailândia", "Singapura, Singapura",
-  "Dubai, Emirados Árabes", "Abu Dhabi, Emirados Árabes", "Délhi, Índia", "Mumbai, Índia",
-  "Istambul, Turquia", "Tel Aviv, Israel", "Jerusalém, Israel",
-  
-  // Oceania
-  "Sydney, Austrália", "Melbourne, Austrália", "Brisbane, Austrália",
-  "Auckland, Nova Zelândia", "Wellington, Nova Zelândia",
-  
-  // África
-  "Cairo, Egito", "Cidade do Cabo, África do Sul", "Joanesburgo, África do Sul",
-  "Marrakech, Marrocos", "Casablanca, Marrocos", "Nairobi, Quênia",
-];
+import { searchCities, formatCityName, type GeocodedCity } from "@/services/geocodeService";
 
 interface CityAutocompleteProps {
   value: string;
@@ -65,9 +21,11 @@ export function CityAutocomplete({
   className = "",
 }: CityAutocompleteProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredCities, setFilteredCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<GeocodedCity[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fechar sugestões ao clicar fora
   useEffect(() => {
@@ -86,36 +44,50 @@ export function CityAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filtrar cidades enquanto digita
+  // Buscar cidades na API com debounce
   const handleInputChange = (inputValue: string) => {
     onChange(inputValue);
     
-    if (inputValue.length === 0) {
-      setFilteredCities([]);
+    if (inputValue.length < 3) {
+      setCities([]);
       setShowSuggestions(false);
       return;
     }
 
-    // Filtrar cidades do mundo que contenham o texto digitado
-    const filtered = WORLD_CITIES.filter(city =>
-      city.toLowerCase().includes(inputValue.toLowerCase())
-    ).slice(0, 10); // Limitar a 10 resultados
+    // Cancelar busca anterior
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
-    setFilteredCities(filtered);
-    setShowSuggestions(filtered.length > 0);
+    // Debounce de 200ms (reduzido para resposta mais rápida)
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const results = await searchCities(inputValue);
+        setCities(results);
+        setShowSuggestions(results.length > 0);
+      } catch (error) {
+        console.error('[CityAutocomplete] Erro ao buscar cidades:', error);
+        setCities([]);
+        setShowSuggestions(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 200);
   };
 
   // Selecionar uma cidade das sugestões
-  const handleSelectCity = (city: string) => {
-    onChange(city);
-    onSelect && onSelect(city);
+  const handleSelectCity = (city: GeocodedCity) => {
+    const formattedName = formatCityName(city);
+    onChange(formattedName);
+    onSelect && onSelect(formattedName);
     setShowSuggestions(false);
   };
 
   return (
     <div className={`relative ${className}`}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
           {label} {required && '*'}
         </label>
       )}
@@ -125,26 +97,42 @@ export function CityAutocomplete({
         value={value}
         onChange={(e) => handleInputChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
         required={required}
       />
-      {showSuggestions && filteredCities.length > 0 && (
+      {showSuggestions && cities.length > 0 && (
         <div
           className="absolute z-10 mt-1 w-full bg-white border border-gray-200 shadow-lg max-h-60 overflow-y-auto rounded-xl"
           ref={suggestionsRef}
         >
-          {filteredCities.map(city => (
-            <div
-              key={city}
-              className="px-4 py-3 cursor-pointer hover:bg-sky-50 transition-colors text-sm border-b border-gray-100 last:border-b-0"
-              onClick={() => handleSelectCity(city)}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">📍</span>
-                <span className="text-gray-900">{city}</span>
+          {cities.map((city, index) => {
+            const formattedName = formatCityName(city);
+            return (
+              <div
+                key={`${city.lat}-${city.lon}-${index}`}
+                className="px-4 py-2.5 cursor-pointer hover:bg-sky-50 transition-colors text-sm border-b border-gray-100 last:border-b-0"
+                onClick={() => handleSelectCity(city)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">📍</span>
+                  <div className="flex-1">
+                    <div className="text-gray-900 font-medium">{city.name}</div>
+                    <div className="text-xs text-gray-500">{formattedName}</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+      )}
+      {value.length > 0 && value.length < 3 && (
+        <div className="absolute z-10 mt-1 w-full bg-sky-50 border border-sky-200 shadow-sm rounded-lg px-3 py-2">
+          <div className="text-xs text-sky-600">💡 Digite pelo menos 3 caracteres para buscar</div>
+        </div>
+      )}
+      {isLoading && (
+        <div className="absolute right-3 top-[38px] text-gray-400">
+          <div className="animate-spin">⏳</div>
         </div>
       )}
     </div>

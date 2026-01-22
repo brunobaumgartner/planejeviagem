@@ -1,24 +1,36 @@
-import { useState } from 'react';
-import {
-  MapPin,
-  Lock,
-  LogIn,
-  Crown,
-  ShoppingCart,
-  Calendar,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  ChevronRight,
-} from 'lucide-react';
-import { Logo } from '../Logo';
-import { BottomNavigation } from '../BottomNavigation';
-import { UserBadge } from '../UserBadge';
-import { ItineraryModal } from '../ItineraryModal';
+import { useState, useEffect } from 'react';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { Logo } from '@/app/components/Logo';
+import { UserBadge } from '@/app/components/UserBadge';
+import type { ItineraryDay, ItineraryActivity } from '@/types/trip';
+import { ItineraryEditor } from '@/app/components/ItineraryEditor';
+import type { Trip } from '@/types/trip';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigation } from '@/app/context/NavigationContext';
 import { useTrips } from '@/app/context/TripsContext';
-import type { Trip } from '@/types';
+import { BottomNavigation } from '@/app/components/BottomNavigation';
+import { 
+  MapPin, 
+  Calendar, 
+  Plus, 
+  ChevronRight, 
+  Lock, 
+  LogIn, 
+  CheckCircle2, 
+  AlertCircle, 
+  Crown, 
+  ShoppingCart,
+  ArrowLeft,
+  Bell 
+} from 'lucide-react';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
+
+// Função auxiliar para formatar data no padrão brasileiro
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
 
 export function Roteiro() {
   const { user, isGuest, isPremium } = useAuth();
@@ -27,6 +39,38 @@ export function Roteiro() {
   
   const [selectedTripForModal, setSelectedTripForModal] = useState<Trip | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [planningPrice, setPlanningPrice] = useState<number | null>(null);
+
+  // Buscar preço do planejamento do banco de dados
+  useEffect(() => {
+    const fetchPlanningPrice = async () => {
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${publicAnonKey}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setPlanningPrice(data.planning_price || 49.90);
+          console.log('[Roteiro] ✅ Preço carregado:', data.planning_price);
+        } else {
+          console.warn('[Roteiro] ⚠️ Erro ao carregar preço, usando fallback');
+          setPlanningPrice(49.90);
+        }
+      } catch (error) {
+        console.error('[Roteiro] ❌ Erro ao buscar preço:', error);
+        setPlanningPrice(49.90); // Fallback
+      }
+    };
+
+    fetchPlanningPrice();
+  }, []);
 
   // Função para abrir modal com roteiro
   const handleOpenItinerary = (trip: Trip) => {
@@ -40,13 +84,14 @@ export function Roteiro() {
     setSelectedTripForModal(null);
   };
 
-  // Função para editar roteiro (premium)
-  const handleEditItinerary = () => {
-    if (selectedTripForModal) {
-      selectTrip(selectedTripForModal.id);
-      setIsModalOpen(false);
-      setCurrentScreen('trips'); // Vai para minhas viagens onde tem o editor
-    }
+  // Função para salvar roteiro editado (para Premium)
+  const handleSaveItinerary = async (itinerary: ItineraryDay[]) => {
+    if (!selectedTripForModal) return;
+    
+    // Aqui você implementaria a lógica de salvar no contexto de Trips
+    // Para demo, apenas simulamos
+    console.log('[Roteiro] Salvando itinerário:', itinerary);
+    // await updateTripItinerary(selectedTripForModal.id, itinerary);
   };
 
   // GUEST: Blocked from accessing itineraries
@@ -54,8 +99,16 @@ export function Roteiro() {
     return (
       <div className="min-h-screen bg-gray-50 pb-24">
         <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentScreen('home')}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
             <Logo size={32} variant="full" className="text-sky-500" />
+            <div className="w-10" /> {/* Spacer para centralizar o logo */}
           </div>
         </header>
 
@@ -107,6 +160,13 @@ export function Roteiro() {
     <div className="min-h-screen bg-gray-50 pb-24">
       <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
         <div className="flex items-center justify-between">
+          <button
+            onClick={() => setCurrentScreen('home')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
+          </button>
           <Logo size={32} variant="full" className="text-sky-500" />
           <UserBadge role={user!.role} size="sm" />
         </div>
@@ -185,7 +245,7 @@ export function Roteiro() {
                       
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="w-4 h-4" />
-                        <span>{trip.startDate} - {trip.endDate}</span>
+                        <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
                       </div>
                       
                       <div className="mt-2 flex items-center gap-2">
@@ -262,7 +322,7 @@ export function Roteiro() {
                   </h3>
                   <p className="text-sm text-gray-700">
                     Nossa equipe cria um roteiro completo e personalizado para sua
-                    viagem por apenas R$ 1,00
+                    viagem por apenas R$ {planningPrice?.toFixed(2).replace('.', ',')}
                   </p>
                 </div>
               </div>
@@ -279,13 +339,13 @@ export function Roteiro() {
 
       <BottomNavigation activeTab="itinerary" />
 
-      {/* Itinerary Modal */}
+      {/* Itinerary Modal - Unificado para visualização E edição */}
       {selectedTripForModal && (
-        <ItineraryModal
+        <ItineraryEditor
           trip={selectedTripForModal}
           isOpen={isModalOpen}
           onClose={handleCloseModal}
-          onEdit={isPremium ? handleEditItinerary : undefined}
+          onSave={handleSaveItinerary}
           canEdit={isPremium}
         />
       )}

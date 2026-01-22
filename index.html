@@ -1,15 +1,124 @@
-
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Planeje Viagem</title>
-    </head>
-
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Planeje Fácil - Planejamento de Viagens Inteligente e Personalizado</title>
+    <meta name="title" content="Planeje Fácil - Planejamento de Viagens Inteligente e Personalizado" />
+    <meta name="description" content="Organize suas viagens de forma fácil e inteligente. Planejamento personalizado, orçamento automático, roteiros interativos, guias culturais e conversão de moedas para viagens nacionais e internacionais." />
+    <meta name="keywords" content="planejamento de viagem, roteiro de viagem, orçamento de viagem, viagem internacional, viagem nacional, guia turístico, conversão de moeda, calculadora de viagem, organizar viagem" />
+    <meta name="author" content="Planeje Fácil" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="Portuguese" />
+    <meta name="revisit-after" content="7 days" />
+    <meta name="theme-color" content="#0ea5e9" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://planejefacil.com/" />
+    <meta property="og:title" content="Planeje Fácil - Planejamento de Viagens Inteligente" />
+    <meta property="og:description" content="Organize suas viagens de forma fácil e inteligente. Planejamento personalizado, orçamento automático, roteiros interativos e muito mais." />
+    <meta property="og:image" content="https://planejefacil.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Planeje Fácil" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://planejefacil.com/" />
+    <meta property="twitter:title" content="Planeje Fácil - Planejamento de Viagens Inteligente" />
+    <meta property="twitter:description" content="Organize suas viagens de forma fácil e inteligente. Planejamento personalizado, orçamento automático, roteiros interativos e muito mais." />
+    <meta property="twitter:image" content="https://planejefacil.com/og-image.jpg" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://planejefacil.com/" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Preconnect to external domains for performance -->
+    <link rel="preconnect" href="https://api.exchangerate-api.com" />
+    <link rel="preconnect" href="https://restcountries.com" />
+    <link rel="preconnect" href="https://nominatim.openstreetmap.org" />
+    <link rel="preconnect" href="https://pt.wikivoyage.org" />
+    <link rel="preconnect" href="https://commons.wikimedia.org" />
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Planeje Fácil",
+      "description": "Aplicativo de planejamento de viagens inteligente com recursos de orçamento automático, roteiros personalizados, guias culturais e conversão de moedas.",
+      "url": "https://planejefacil.com",
+      "applicationCategory": "TravelApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "BRL"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "150"
+      },
+      "featureList": [
+        "Planejamento de viagens nacionais e internacionais",
+        "Calculadora de orçamento automática",
+        "Editor de roteiro interativo",
+        "Guia cultural com informações da Wikivoyage",
+        "Conversor de moedas em tempo real",
+        "Sistema de pagamento integrado",
+        "Compartilhamento de viagens"
+      ]
+    }
+    </script>
+    
+    <!-- Organization Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Planeje Fácil",
+      "url": "https://planejefacil.com",
+      "logo": "https://planejefacil.com/logo.png",
+      "sameAs": [
+        "https://facebook.com/planejefacil",
+        "https://instagram.com/planejefacil",
+        "https://twitter.com/planejefacil"
+      ]
+    }
+    </script>
+    
+    <!-- BreadcrumbList Schema (will be updated dynamically) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [{
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://planejefacil.com"
+      }]
+    }
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+        <h1>JavaScript é necessário</h1>
+        <p>Para usar o Planeje Fácil, você precisa habilitar o JavaScript no seu navegador.</p>
+        <p>Este aplicativo usa tecnologias modernas para oferecer a melhor experiência de planejamento de viagens.</p>
+      </div>
+    </noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

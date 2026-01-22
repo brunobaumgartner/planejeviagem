@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { DollarSign, Save, AlertCircle, CheckCircle, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import type { PricingConfig } from '@/types';
+import type { PricingConfig as PricingConfigType } from '@/types';
 
 export function PricingConfig() {
   const { getAccessToken } = useAuth();
-  const [config, setConfig] = useState<PricingConfig | null>(null);
+  const [config, setConfig] = useState<PricingConfigType | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +36,7 @@ export function PricingConfig() {
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`,
         {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
         }

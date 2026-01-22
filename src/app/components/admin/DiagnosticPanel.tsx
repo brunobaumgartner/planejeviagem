@@ -96,6 +96,7 @@ export function DiagnosticPanel() {
         const healthUrl = `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/health`;
         const healthResponse = await fetch(healthUrl, {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
         });
@@ -132,6 +133,7 @@ export function DiagnosticPanel() {
           const adminUrl = `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/admin/users`;
           const adminResponse = await fetch(adminUrl, {
             headers: {
+              'Content-Type': 'application/json',
               'Authorization': `Bearer ${publicAnonKey}`,
               'X-User-Token': token,
             },

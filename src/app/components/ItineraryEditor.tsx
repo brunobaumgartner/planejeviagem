@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, GripVertical, Save } from 'lucide-react';
-import type { ItineraryDay, ItineraryActivity } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Trash2, GripVertical, Save, MapPin, ChevronDown, ChevronUp, Map as MapIcon, Edit2, DollarSign } from 'lucide-react';
+import type { ItineraryDay, ItineraryActivity, Attraction } from '@/types';
+import { AttractionsMap } from '@/app/components/AttractionsMap';
+import { geocodeLocation } from '@/services/internationalService';
+import { CurrencyWidget } from '@/app/components/CurrencyWidget';
+import { CashCalculator } from '@/app/components/CashCalculator';
 
 interface ItineraryEditorProps {
   isOpen: boolean;
   trip: any | null;
   onSave: (itinerary: ItineraryDay[]) => Promise<void>;
   onClose: () => void;
+  canEdit?: boolean; // Se false, será apenas visualização
 }
 
 export function ItineraryEditor({
@@ -14,6 +19,7 @@ export function ItineraryEditor({
   trip,
   onSave,
   onClose,
+  canEdit = true,
 }: ItineraryEditorProps) {
   if (!isOpen || !trip) return null;
 
@@ -26,10 +32,10 @@ export function ItineraryEditor({
 
     // Gerar dias automaticamente baseado nas datas
     const days: ItineraryDay[] = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const start = new Date(startDate + 'T00:00:00'); // Adicionar horário para evitar timezone
+    const end = new Date(endDate + 'T00:00:00');
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // Corrigido: floor + 1
 
     for (let i = 0; i < diffDays; i++) {
       const date = new Date(start);
@@ -47,6 +53,69 @@ export function ItineraryEditor({
 
   const [isSaving, setIsSaving] = useState(false);
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
+  const [isEditing, setIsEditing] = useState(canEdit); // Modo de edição/visualização
+  const [showMap, setShowMap] = useState(false);
+  const [coordinates, setCoordinates] = useState<[number, number] | null>(null);
+  const [loadingCoords, setLoadingCoords] = useState(false);
+
+  // Geocodificar destino quando o modal abrir
+  useEffect(() => {
+    if (isOpen && trip && !coordinates) {
+      loadCoordinates();
+    }
+  }, [isOpen, trip]);
+
+  const loadCoordinates = async () => {
+    if (!trip) return;
+    
+    setLoadingCoords(true);
+    try {
+      console.log('🌍 Tentando geocodificar destino:', trip.destination);
+      const results = await geocodeLocation(trip.destination);
+      
+      if (results && results.length > 0 && results[0].lat && results[0].lon) {
+        const lat = Number(results[0].lat);
+        const lon = Number(results[0].lon);
+        
+        if (isNaN(lat) || isNaN(lon)) {
+          console.error('❌ Coordenadas inválidas:', results[0]);
+          return;
+        }
+        
+        const coords: [number, number] = [lat, lon];
+        console.log('✅ Coordenadas definidas:', coords);
+        setCoordinates(coords);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao geocodificar destino:', error);
+    } finally {
+      setLoadingCoords(false);
+    }
+  };
+
+  const handleAddAttractionToDay = (attraction: Attraction, dayIndex: number) => {
+    if (!canEdit) return;
+
+    const newActivity: ItineraryActivity = {
+      id: `activity-${Date.now()}`,
+      time: '09:00',
+      title: attraction.name,
+      location: attraction.name,
+      duration: '2h',
+      notes: attraction.type ? `📍 ${attraction.type}` : '',
+    };
+
+    setItinerary((prev) => {
+      const updated = [...prev];
+      updated[dayIndex].activities.push(newActivity);
+      return updated;
+    });
+
+    // Expandir o dia para mostrar a atividade adicionada
+    setExpandedDay(dayIndex + 1);
+    
+    console.log(`✅ Atração "${attraction.name}" adicionada ao Dia ${dayIndex + 1}`);
+  };
 
   const addActivity = (dayIndex: number) => {
     const newActivity: ItineraryActivity = {
@@ -101,6 +170,18 @@ export function ItineraryEditor({
     }
   };
 
+  // Formatar data no padrão brasileiro sem problemas de timezone
+  const formatDateBR = (dateString: string) => {
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -143,11 +224,7 @@ export function ItineraryEditor({
                       Dia {day.day}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {new Date(day.date).toLocaleDateString('pt-BR', {
-                        weekday: 'long',
-                        day: '2-digit',
-                        month: 'long',
-                      })}
+                      {formatDateBR(day.date)}
                     </p>
                   </div>
                 </div>
@@ -256,6 +333,128 @@ export function ItineraryEditor({
               )}
             </div>
           ))}
+
+          {/* Mapa de Pontos Turísticos */}
+          <div className="mt-8">
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 rounded-xl transition-all border border-sky-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center">
+                  <MapIcon className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-bold text-gray-900">Pontos Turísticos Próximos</h3>
+                  <p className="text-sm text-gray-600">
+                    {showMap ? 'Ocultar mapa' : 'Ver atrações, monumentos, parques e mais'}
+                  </p>
+                </div>
+              </div>
+              {showMap ? (
+                <ChevronUp className="w-5 h-5 text-gray-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+
+            {showMap && (
+              <div className="mt-4">
+                {loadingCoords ? (
+                  <div className="bg-gray-100 rounded-xl p-12 text-center">
+                    <div className="inline-block w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <p className="text-sm text-gray-600">Carregando mapa...</p>
+                  </div>
+                ) : coordinates ? (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <AttractionsMap
+                      center={coordinates}
+                      radius={10000}
+                      zoom={13}
+                      itinerary={canEdit ? itinerary : undefined}
+                      onAddToDay={canEdit ? handleAddAttractionToDay : undefined}
+                    />
+                    <div className="p-3 bg-gray-50 border-t border-gray-200">
+                      <p className="text-xs text-gray-600 text-center">
+                        {canEdit ? (
+                          '💡 Clique nos marcadores para ver detalhes e adicionar ao roteiro'
+                        ) : (
+                          '💡 Veja as principais atrações turísticas próximas ao destino'
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 rounded-xl p-6 border border-amber-200 text-center">
+                    <MapIcon className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                    <p className="text-sm text-amber-800">
+                      Não foi possível carregar o mapa para este destino.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* FEATURE 2: Informações de Câmbio (apenas viagens internacionais) */}
+          {trip.isInternational && trip.destinationCurrency && (
+            <div className="mt-8 space-y-6">
+              {/* Header da seção */}
+              <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Informações de Câmbio</h3>
+                  <p className="text-sm text-gray-600">
+                    Sistema completo para planejamento financeiro internacional
+                  </p>
+                </div>
+              </div>
+
+              {/* Widget de Conversão */}
+              <div>
+                <CurrencyWidget
+                  from="BRL"
+                  to={trip.destinationCurrency}
+                  initialAmount={trip.budgetAmount || 1000}
+                  compact={false}
+                  onRateChange={(rate) => {
+                    console.log('[ItineraryEditor] Taxa atualizada:', rate);
+                  }}
+                />
+              </div>
+
+              {/* Calculadora de Espécie */}
+              {trip.budgetAmount && (
+                <div>
+                  <CashCalculator
+                    totalBudget={trip.budgetAmount}
+                    days={itinerary.length}
+                    destination={trip.destination}
+                    currency={trip.destinationCurrency}
+                  />
+                </div>
+              )}
+
+              {/* Info adicional */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-900">
+                  💡 <strong>Dica:</strong> Acompanhe as taxas de câmbio diariamente e configure alertas
+                  para ser notificado quando a moeda atingir o valor desejado.{' '}
+                  <button
+                    onClick={() => {
+                      // Navegar para tela de câmbio completa
+                      window.open('#/exchange', '_blank');
+                    }}
+                    className="underline font-semibold hover:text-blue-700"
+                  >
+                    Acessar sistema completo →
+                  </button>
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

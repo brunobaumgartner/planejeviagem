@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
-type Screen = "home" | "packages" | "trips" | "itinerary" | "profile" | "login" | "signup" | "admin" | "forgot-password" | "reset-password";
+type Screen = "home" | "packages" | "trips" | "itinerary" | "profile" | "login" | "signup" | "admin" | "forgot-password" | "reset-password" | "exchange" | "guide";
 
 interface NavigationContextType {
   currentScreen: Screen;

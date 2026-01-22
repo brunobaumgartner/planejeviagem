@@ -1,63 +1,156 @@
-import {
-  ArrowLeft,
-  RotateCcw,
-  Share,
-  MoreHorizontal,
-} from "lucide-react";
 import { SearchBar } from "../SearchBar";
 import { CategorySection } from "../CategorySection";
 import { TravelCard } from "../TravelCard";
 import { BottomNavigation } from "../BottomNavigation";
 import { ScrollableSection } from "../ScrollableSection";
 import { Logo } from "../Logo";
+import { TripSuggestions } from "../TripSuggestions";
+import { NotificationBell } from "../NotificationBell";
+import { CulturalGuideModal } from "../CulturalGuideModal";
+import { useState } from "react";
 import { useNavigation } from "@/app/context/NavigationContext";
 
 export function Home() {
   const { setCurrentScreen } = useNavigation();
+  const [selectedCity, setSelectedCity] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleSelectSuggestion = (suggestion: any) => {
+    // Salvar dados da sugestão no localStorage
+    localStorage.setItem('trip_suggestion', JSON.stringify({
+      destination: suggestion.destination,
+      days: parseInt(suggestion.duration) || 5,
+      budget: parseFloat(suggestion.budget.match(/\d+/)?.[0] || "2000"),
+    }));
+    
+    // Navegar para criar nova viagem
+    setCurrentScreen("trips");
+    
+    // Scroll suave para o topo
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Handler para quando selecionar uma cidade na SearchBar
+  function handleCitySelect(cityName: string) {
+    setSelectedCity(cityName);
+    setIsModalOpen(true);
+  }
 
   return (
     <div className="min-h-screen bg-white pb-24">
       {/* Header */}
-      <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
+      <header className="sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 z-10">
         <div className="flex items-center justify-between">
-          <div className="w-10">
-            <button className="p-2">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          </div>
           <Logo
-            size={32}
+            size={28}
             variant="full"
             className="text-sky-500"
           />
-          <div className="flex items-center gap-1">
-            <button className="p-2">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-          </div>
+          <NotificationBell />
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="px-4 pt-6">
+      <main className="px-3 sm:px-4 pt-4 sm:pt-6">
         {/* Search Bar */}
-        {/* <div className="mb-8">
-          <SearchBar placeholder="Para onde você quer ir ou quanto quer gastar?" />
-        </div> */}
+        <div className="mb-6 sm:mb-8">
+          <SearchBar placeholder="Para onde voc quer ir?" onCitySelect={handleCitySelect} />
+        </div>
 
         {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl mb-2">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl mb-2 px-2">
             Viajar pode ser leve. Planejar também.
           </h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-xs sm:text-sm text-gray-600 px-4">
             Organize sua viagem no seu tempo, do seu jeito e
             dentro do seu orçamento.
           </p>
         </div>
 
-        {/* SEÇÕES ESTÁTICAS OCULTAS TEMPORARIAMENTE */}
-        {/* Pacotes, Voos, Hotéis e Veículos serão substituídos por APIs reais futuramente */}
+        {/* Trip Suggestions */}
+        <div className="mb-6">
+          <TripSuggestions onSelectSuggestion={handleSelectSuggestion} />
+        </div>
+
+        {/* FEATURE 2: Sistema de Câmbio */}
+        <div className="mb-6">
+          <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-6 border-2 border-blue-200">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-3xl">💱</span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-bold text-gray-900">Sistema de Câmbio</h3>
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                    NOVO
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700 mb-4">
+                  Acompanhe taxas de câmbio em tempo real, veja histórico de 30 dias e descubra quanto levar em espécie vs cartão.
+                </p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    📈 Histórico 30 dias
+                  </span>
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    💰 Calculadora
+                  </span>
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    🔔 Alertas
+                  </span>
+                </div>
+                <button
+                  onClick={() => setCurrentScreen("exchange")}
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center gap-2"
+                >
+                  <span>Acessar Sistema de Câmbio</span>
+                  <span>→</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FEATURE 4: Guia Turístico */}
+        <div className="mb-6">
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-2xl p-6 border-2 border-amber-200">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-3xl">📚</span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-bold text-gray-900">Guia Turístico</h3>
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                    NOVO
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700 mb-4">
+                  Descubra história, cultura e dicas sobre <strong>qualquer cidade do mundo</strong>. Use a busca acima e comece a explorar!
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    🏛️ História completa
+                  </span>
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    🖼️ Galeria de fotos
+                  </span>
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    💡 Dicas práticas
+                  </span>
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    🌐 Português, Inglês e Espanhol
+                  </span>
+                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
+                    🌍 Qualquer cidade do mundo
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Call to Action */}
         <div className="text-center py-12 px-4 bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl mb-6">
@@ -67,12 +160,14 @@ export function Home() {
           <p className="text-gray-700 mb-6 max-w-md mx-auto">
             Use nossa calculadora inteligente para descobrir quanto vai custar sua próxima aventura.
           </p>
-          <button
-            onClick={() => setCurrentScreen("trips")}
-            className="bg-sky-500 text-white px-8 py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors inline-flex items-center gap-2 shadow-md"
-          >
-            Calcular orçamento →
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => setCurrentScreen("trips")}
+              className="bg-sky-500 text-white px-8 py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors inline-flex items-center justify-center gap-2 shadow-md"
+            >
+              Calcular orçamento →
+            </button>
+          </div>
         </div>
 
         {/* Support Message */}
@@ -87,6 +182,18 @@ export function Home() {
 
       {/* Bottom Navigation */}
       <BottomNavigation activeTab="home" />
+      
+      {/* Modal do Guia Turístico */}
+      {isModalOpen && selectedCity && (
+        <CulturalGuideModal
+          cityName={selectedCity}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedCity('');
+          }}
+        />
+      )}
     </div>
   );
 }

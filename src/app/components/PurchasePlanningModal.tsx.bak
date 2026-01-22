@@ -27,12 +27,12 @@ export function PurchasePlanningModal({ isOpen, onClose, trip }: PurchasePlannin
   // Buscar preço do planejamento ao abrir modal
   useEffect(() => {
     if (isOpen) {
-      fetch(`https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`, {
+      fetch(`https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/config/pricing`, {
         headers: { 'Authorization': `Bearer ${publicAnonKey}` }
       })
         .then(res => res.json())
         .then(data => {
-          setPlanningPrice(data.planning_package_price || 299.90);
+          setPlanningPrice(data.planning_price || 299.90);
         })
         .catch(() => {
           setPlanningPrice(299.90); // Fallback
@@ -88,6 +88,41 @@ export function PurchasePlanningModal({ isOpen, onClose, trip }: PurchasePlannin
         setIsLoading(false);
         return;
       }
+
+      // TESTE: Validar JWT primeiro
+      console.log(
+        "[PurchasePlanningModal] 🧪 TESTANDO validação JWT...",
+      );
+      const testResponse = await fetch(
+        `https://nncryzbssbuhnlvqnjfc.supabase.co/functions/v1/make-server-5f5857fb/test-jwt`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`, // ANON KEY para passar pelo middleware do Supabase
+            "X-User-Token": accessToken, // User token para nosso código validar
+          },
+        },
+      );
+
+      const testResult = await testResponse.json();
+      console.log(
+        "[PurchasePlanningModal] 🧪 Resultado do teste JWT:",
+        testResult,
+      );
+
+      if (!testResponse.ok) {
+        console.error(
+          "[PurchasePlanningModal] ❌ TESTE JWT FALHOU:",
+          testResult,
+        );
+        setError(`Erro de autenticação: ${testResult.error}`);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(
+        "[PurchasePlanningModal] ✅ TESTE JWT PASSOU! Continuando com compra...",
+      );
 
       console.log(
         "[PurchasePlanningModal] 🚀 Chamando createCheckout...",

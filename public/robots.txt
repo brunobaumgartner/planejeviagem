@@ -1,0 +1,28 @@
+# robots.txt para Planeje Fácil
+# Permite indexação completa do site
+
+User-agent: *
+Allow: /
+
+# Bloquear áreas administrativas e de pagamento
+Disallow: /admin
+Disallow: /payment-success
+Disallow: /payment-failure
+Disallow: /payment-pending
+Disallow: /api/
+
+# Permitir crawlers de redes sociais
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+# Crawl-delay para não sobrecarregar o servidor
+Crawl-delay: 1
+
+# Sitemap
+Sitemap: https://planejefacil.com/sitemap.xml

@@ -45,37 +45,43 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       
       // Se não tiver token, não buscar
       if (!accessToken) {
+        console.log('[Notifications] Sem access token, pulando busca');
         setNotifications([]);
         setUnreadCount(0);
         setIsLoading(false);
         return;
       }
 
+      console.log('[Notifications] Buscando notificações com token válido');
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/notifications`,
         {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': accessToken,
           },
         }
       );
 
       if (!response.ok) {
-        // Se não autenticado, limpar e retornar
+        // Se não autenticado, limpar e retornar sem logar erro
         if (response.status === 401) {
+          console.log('[Notifications] Token rejeitado (401), limpando notificações');
           setNotifications([]);
           setUnreadCount(0);
           return;
         }
-        throw new Error('Erro ao carregar notificações');
+        throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('[Notifications] ✅ Notificações carregadas:', data.notifications?.length || 0);
       setNotifications(data.notifications || []);
       setUnreadCount(data.unread_count || 0);
     } catch (error) {
-      console.error('[Notifications] Erro ao carregar:', error);
+      console.warn('[Notifications] Servidor indisponível, usando fallback:', error);
+      // Falha silenciosa - não quebra o app
       setNotifications([]);
       setUnreadCount(0);
     } finally {

@@ -4,6 +4,7 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import * as dataFetcher from './data-fetcher.tsx';
+import { AuthService } from './auth.tsx';
 
 const app = new Hono();
 
@@ -30,6 +31,9 @@ const supabaseAnon = createClient(
   Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 );
 
+// Initialize AuthService (centralizado)
+const authService = new AuthService(supabaseAnon);
+
 // Helper function to create authenticated Supabase client from access token
 function getAuthenticatedClient(accessToken: string) {
   return createClient(
@@ -45,51 +49,41 @@ function getAuthenticatedClient(accessToken: string) {
   );
 }
 
-// Helper to extract access token from request
+// ============================================
+// FUNÇÕES ANTIGAS DE AUTENTICAÇÃO - DEPRECATED
+// ============================================
+// ⚠️ NÃO USE ESTAS FUNÇÕES! Use AuthService em vez disso.
+// Mantidas apenas para compatibilidade temporária.
+// ============================================
+
+/**
+ * @deprecated Use authService.extractToken() ou authService.verifyRequest()
+ */
 function getAccessToken(c: any): string | null {
-  // Tentar primeiro o header customizado X-User-Token
   const customHeader = c.req.header('X-User-Token');
-  console.log('[Auth] X-User-Token header:', customHeader ? 'presente' : 'ausente');
-  if (customHeader) {
-    console.log('[Auth] Usando X-User-Token');
-    return customHeader;
-  }
+  if (customHeader) return customHeader;
   
-  // Fallback para Authorization header (compatibilidade)
   const authHeader = c.req.header('Authorization');
-  console.log('[Auth] Authorization header:', authHeader ? 'presente' : 'ausente');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('[Auth] Authorization header inválido ou ausente');
-    return null;
-  }
-  console.log('[Auth] Usando Authorization header');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  
   return authHeader.substring(7);
 }
 
-// Helper to verify and extract user ID from JWT
+/**
+ * @deprecated Use authService.verifyRequest() e pegue user.id
+ */
 async function verifyAndGetUserId(c: any): Promise<string | null> {
-  const accessToken = getAccessToken(c);
-  if (!accessToken) {
-    console.error('[Auth] No access token found');
-    return null;
-  }
+  console.warn('⚠️ verifyAndGetUserId() is deprecated. Use authService.verifyRequest()');
+  const user = await authService.verifyRequest(c);
+  return user?.id || null;
+}
 
-  try {
-    // IMPORTANTE: Usar supabaseAnon para validar tokens de usuários
-    // O SERVICE_ROLE_KEY não deve ser usado para validar JWTs de usuários
-    const { data: { user }, error } = await supabaseAnon.auth.getUser(accessToken);
-    
-    if (error || !user) {
-      console.error('[Auth] Invalid token:', error?.message);
-      return null;
-    }
-    
-    console.log('[Auth] Token válido para usuário:', user.email);
-    return user.id;
-  } catch (error) {
-    console.error('[Auth] Error verifying token:', error);
-    return null;
-  }
+/**
+ * @deprecated Use authService.verifyRequest()
+ */
+async function verifyAndGetUser(c: any): Promise<any | null> {
+  console.warn('⚠️ verifyAndGetUser() is deprecated. Use authService.verifyRequest()');
+  return await authService.verifyRequest(c);
 }
 
 // Helper function to convert camelCase to snake_case for database
@@ -1472,41 +1466,334 @@ app.post('/make-server-5f5857fb/admin/reset-password', async (c) => {
 // BUDGET ROUTES
 // ============================================
 
-// Get city budget data
-app.get('/make-server-5f5857fb/budgets/:cityName', async (c) => {
+// Helper function to fetch or generate budget
+async function fetchOrGenerateBudget(cityName: string) {
   try {
-    const cityName = c.req.param('cityName');
-
+    console.log(`[Budget Helper] Buscando orçamento para: ${cityName}`);
+    
+    // Primeiro tenta buscar no banco de dados
     const { data, error } = await supabaseAdmin
       .from('city_budgets')
       .select('*')
       .ilike('city_name', cityName)
       .single();
 
-    if (error || !data) {
-      // Return default budget if city not found
-      return c.json({
-        cityBudget: {
-          city_name: cityName,
-          country: 'Unknown',
-          daily_budgets: {
-            economy: 150,
-            medium: 300,
-            comfort: 500,
-          },
-          flight_estimates: {
-            domestic: { min: 400, max: 1200 },
-            international: { min: 1500, max: 5000 },
-          },
-          last_updated: new Date().toISOString(),
-        },
-      });
+    if (data && !error) {
+      console.log(`[Budget Helper] ✅ Encontrado no banco: ${cityName}`);
+      return data;
     }
 
-    return c.json({ cityBudget: data });
+    // Se não encontrou no banco, tenta gerar dinamicamente para cidades internacionais
+    console.log(`[Budget Helper] Não encontrado no banco, gerando via API: ${cityName}`);
+    
+    // Buscar informações do país usando REST Countries API
+    const countrySearchResponse = await fetch(
+      `https://restcountries.com/v3.1/name/${encodeURIComponent(cityName.split(',')[1]?.trim() || cityName)}?fields=name,currencies,cca2`
+    );
+    
+    if (countrySearchResponse.ok) {
+      const countryData = await countrySearchResponse.json();
+      const country = Array.isArray(countryData) ? countryData[0] : countryData;
+      const currencyCode = Object.keys(country.currencies || {})[0];
+      
+      // Buscar taxa de câmbio usando ExchangeRate API
+      const exchangeResponse = await fetch(
+        `https://v6.exchangerate-api.com/v6/latest/BRL`
+      );
+      
+      if (exchangeResponse.ok) {
+        const exchangeData = await exchangeResponse.json();
+        const rate = exchangeData.conversion_rates?.[currencyCode] || 1;
+        
+        // Calcular orçamentos baseados no custo de vida relativo
+        const baseCosts = {
+          expensive: {
+            economy: 400,
+            medium: 700,
+            comfort: 1200,
+          },
+          moderate: {
+            economy: 200,
+            medium: 400,
+            comfort: 700,
+          }
+        };
+        
+        // Determinar categoria baseado no país
+        const expensiveCountries = ['FR', 'GB', 'US', 'JP', 'AE', 'CH', 'NO', 'SE', 'DK'];
+        const isExpensive = expensiveCountries.includes(country.cca2);
+        const costs = isExpensive ? baseCosts.expensive : baseCosts.moderate;
+        
+        console.log(`[Budget] Orçamento dinâmico gerado para ${cityName}: ${currencyCode}, taxa: ${rate}`);
+        
+        // SALVAR NO BANCO PARA CACHE
+        const budgetToSave = {
+          city_name: cityName,
+          country: country.name.common,
+          currency: currencyCode,
+          daily_budgets: {
+            economy: costs.economy,
+            medium: costs.medium,
+            comfort: costs.comfort,
+          },
+          notes: 'Orçamento calculado automaticamente via API. Valores podem variar.',
+          last_updated: new Date().toISOString(),
+        };
+        
+        try {
+          const { error: insertError } = await supabaseAdmin
+            .from('city_budgets')
+            .insert(budgetToSave);
+          
+          if (insertError) {
+            console.error(`[Budget] Erro ao salvar no banco:`, insertError);
+          } else {
+            console.log(`[Budget] ✅ Orçamento salvo no banco para cache futuro: ${cityName}`);
+          }
+        } catch (saveError) {
+          console.error(`[Budget] Erro ao salvar:`, saveError);
+        }
+        
+        return budgetToSave;
+      }
+    }
+
+    // Fallback: retornar valores padrão se as APIs não funcionaram
+    console.log(`[Budget Helper] ⚠️ Usando valores padrão para: ${cityName}`);
+    return {
+      city_name: cityName,
+      country: 'Unknown',
+      daily_budgets: {
+        economy: 150,
+        medium: 300,
+        comfort: 500,
+      },
+      notes: '⚠️ Orçamento estimado. Valores podem variar.',
+      last_updated: new Date().toISOString(),
+    };
+  } catch (helperError) {
+    console.error(`[Budget Helper] Erro crítico ao buscar ${cityName}:`, helperError);
+    // Garantir que sempre retorna algo válido
+    return {
+      city_name: cityName,
+      country: 'Unknown',
+      daily_budgets: {
+        economy: 150,
+        medium: 300,
+        comfort: 500,
+      },
+      notes: '⚠️ Orçamento estimado. Valores podem variar.',
+      last_updated: new Date().toISOString(),
+    };
+  }
+}
+
+// Get city budget data
+app.get('/make-server-5f5857fb/budgets/:cityName', async (c) => {
+  try {
+    const cityName = c.req.param('cityName');
+    const cityBudget = await fetchOrGenerateBudget(cityName);
+    return c.json({ cityBudget });
   } catch (error) {
     console.error('Get city budget error:', error);
     return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// ============================================
+// DESTINOS POPULARES (com cache via KV)
+// ============================================
+
+// Get popular travel suggestions
+app.get('/make-server-5f5857fb/popular-destinations', async (c) => {
+  console.log('='.repeat(60));
+  console.log('[PopularDestinations] 🚀 ROTA ACESSADA - Início do handler');
+  console.log('[PopularDestinations] Method:', c.req.method);
+  console.log('[PopularDestinations] URL:', c.req.url);
+  console.log('[PopularDestinations] Headers:', Object.fromEntries(c.req.raw.headers));
+  console.log('='.repeat(60));
+  
+  try {
+    // Primeiro tenta buscar do cache KV
+    console.log('[PopularDestinations] Verificando cache KV...');
+    const cached = await kv.get('popular_destinations');
+    console.log('[PopularDestinations] Cache KV resultado:', cached ? 'encontrado' : 'não encontrado');
+    
+    if (cached) {
+      const cacheAge = Date.now() - new Date(cached.last_updated || 0).getTime();
+      const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+      
+      // Se cache tem menos de 1 semana, retorna
+      if (cacheAge < ONE_WEEK) {
+        console.log('[PopularDestinations] Retornando do cache');
+        return c.json({ destinations: cached.destinations });
+      }
+    }
+    
+    console.log('[PopularDestinations] Cache expirado ou não existe, buscando dados frescos...');
+    
+    // Lista curada de destinos populares (REDUZIDA para evitar timeout)
+    // Apenas os destinos mais populares para garantir resposta rápida
+    const popularCities = [
+      // Brasil - Top 8
+      { city: 'Rio de Janeiro', country: 'Brasil', emoji: '🏖️' },
+      { city: 'São Paulo', country: 'Brasil', emoji: '🏙️' },
+      { city: 'Salvador', country: 'Brasil', emoji: '🎭' },
+      { city: 'Florianópolis', country: 'Brasil', emoji: '🌊' },
+      { city: 'Gramado', country: 'Brasil', emoji: '🍫' },
+      { city: 'Foz do Iguaçu', country: 'Brasil', emoji: '💦' },
+      { city: 'Recife', country: 'Brasil', emoji: '🏝️' },
+      { city: 'Fortaleza', country: 'Brasil', emoji: '🏄' },
+      
+      // Internacional - Top 7
+      { city: 'Paris', country: 'França', emoji: '🗼' },
+      { city: 'Lisboa', country: 'Portugal', emoji: '🇵🇹' },
+      { city: 'Buenos Aires', country: 'Argentina', emoji: '💃' },
+      { city: 'Roma', country: 'Itália', emoji: '🏛️' },
+      { city: 'Nova York', country: 'Estados Unidos', emoji: '🗽' },
+      { city: 'Barcelona', country: 'Espanha', emoji: '🏰' },
+      { city: 'Cancún', country: 'México', emoji: '🏖️' },
+    ];
+    
+    // Buscar dados reais para cada destino (com timeout individual)
+    const destinations = await Promise.all(
+      popularCities.map(async ({ city, country, emoji }) => {
+        try {
+          const cityFullName = `${city}, ${country}`;
+          console.log(`[PopularDestinations] Processando: ${cityFullName}`);
+          
+          // Timeout individual de 5 segundos por cidade
+          const timeout = new Promise<null>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 5000)
+          );
+          
+          const fetchData = async () => {
+            // Buscar orçamento (da API ou banco) usando função helper
+            const cityBudget = await fetchOrGenerateBudget(cityFullName);
+            console.log(`[PopularDestinations] Orçamento obtido para ${cityFullName}:`, cityBudget?.daily_budgets);
+            
+            let budget = { min: 0, max: 0 };
+            let duration = '5 dias';
+            
+            if (cityBudget?.daily_budgets) {
+              // Estimar orçamento total para 5 dias
+              const days = 5;
+              budget = {
+                min: Math.round(cityBudget.daily_budgets.economy * days),
+                max: Math.round(cityBudget.daily_budgets.comfort * days)
+              };
+            }
+            
+            // Highlights simplificados baseados no destino
+            const highlightsMap: Record<string, string[]> = {
+              'Rio de Janeiro': ['Cristo Redentor', 'Praias de Copacabana e Ipanema', 'Pão de Açúcar'],
+              'São Paulo': ['MASP e Avenida Paulista', 'Gastronomia diversificada', 'Vida cultural intensa'],
+              'Salvador': ['Pelourinho histórico', 'Praias tropicais', 'Cultura afro-brasileira'],
+              'Florianópolis': ['42 praias paradisíacas', 'Lagoa da Conceição', 'Gastronomia de frutos do mar'],
+              'Gramado': ['Arquitetura europeia', 'Natal Luz', 'Chocolates artesanais'],
+              'Foz do Iguaçu': ['Cataratas do Iguaçu', 'Usina de Itaipu', 'Marco das Três Fronteiras'],
+              'Recife': ['Praias urbanas', 'Centro histórico de Olinda', 'Cultura nordestina'],
+              'Fortaleza': ['Praias de águas mornas', 'Beach Park', 'Cultura cearense'],
+              'Paris': ['Torre Eiffel', 'Museu do Louvre', 'Gastronomia francesa'],
+              'Lisboa': ['Centro histórico', 'Pastéis de Belém', 'Bonde 28'],
+              'Buenos Aires': ['Tango e cultura portenha', 'La Boca', 'Gastronomia argentina'],
+              'Roma': ['Coliseu', 'Cidade do Vaticano', 'História milenar'],
+              'Nova York': ['Estátua da Liberdade', 'Times Square', 'Central Park'],
+              'Barcelona': ['Sagrada Família', 'Park Güell', 'Arquitetura de Gaudí'],
+              'Cancún': ['Praias caribenhas', 'Sítios arqueológicos maias', 'Vida noturna'],
+            };
+            
+            const highlights = highlightsMap[city] || 
+              (country === 'Brasil' 
+                ? ['Cultura rica', 'Gastronomia local', 'Pontos turísticos']
+                : ['Atrações históricas', 'Cultura internacional', 'Experiência única']);
+            
+            return {
+              destination: cityFullName,
+              duration,
+              budget: budget.min > 0 ? `R$ ${budget.min.toLocaleString('pt-BR')} - R$ ${budget.max.toLocaleString('pt-BR')}` : 'Consultar',
+              highlights: highlights.slice(0, 3),
+              emoji
+            };
+          };
+          
+          // Race entre fetch e timeout
+          return await Promise.race([fetchData(), timeout]);
+        } catch (error) {
+          console.error(`[PopularDestinations] Erro ao processar ${city}:`, error);
+          // Retornar dados básicos em caso de erro
+          return {
+            destination: `${city}, ${country}`,
+            duration: '5 dias',
+            budget: 'Consultar',
+            highlights: country === 'Brasil' 
+              ? ['Cultura rica', 'Gastronomia local', 'Pontos turísticos']
+              : ['Atrações históricas', 'Cultura internacional', 'Experiência única'],
+            emoji
+          };
+        }
+      })
+    );
+    
+    // Filtrar destinos que deram erro
+    const validDestinations = destinations.filter(d => d !== null);
+    
+    // Salvar no cache KV
+    const cacheData = {
+      destinations: validDestinations,
+      last_updated: new Date().toISOString()
+    };
+    
+    await kv.set('popular_destinations', cacheData);
+    console.log(`[PopularDestinations] ✅ ${validDestinations.length} destinos salvos no cache`);
+    
+    return c.json({ destinations: validDestinations });
+    
+  } catch (error) {
+    console.error('[PopularDestinations] Erro crítico:', error);
+    console.error('[PopularDestinations] Stack:', error instanceof Error ? error.stack : 'N/A');
+    
+    // Retornar dados de fallback em caso de erro
+    console.log('[PopularDestinations] Retornando dados de fallback');
+    const fallbackDestinations = [
+      {
+        destination: "Rio de Janeiro, Brasil",
+        duration: "5 dias",
+        budget: "R$ 1.000 - R$ 2.500",
+        highlights: ["Cristo Redentor", "Praias de Copacabana e Ipanema", "Pão de Açúcar"],
+        emoji: "🏖️"
+      },
+      {
+        destination: "São Paulo, Brasil",
+        duration: "4 dias",
+        budget: "R$ 1.200 - R$ 2.800",
+        highlights: ["MASP e Avenida Paulista", "Gastronomia diversificada", "Vida cultural intensa"],
+        emoji: "🏙️"
+      },
+      {
+        destination: "Salvador, Brasil",
+        duration: "5 dias",
+        budget: "R$ 900 - R$ 2.200",
+        highlights: ["Pelourinho histórico", "Praias tropicais", "Cultura afro-brasileira"],
+        emoji: "🎭"
+      },
+      {
+        destination: "Florianópolis, Brasil",
+        duration: "5 dias",
+        budget: "R$ 1.100 - R$ 2.600",
+        highlights: ["42 praias paradisíacas", "Lagoa da Conceição", "Gastronomia de frutos do mar"],
+        emoji: "🌊"
+      },
+      {
+        destination: "Gramado, Brasil",
+        duration: "4 dias",
+        budget: "R$ 1.300 - R$ 3.000",
+        highlights: ["Arquitetura europeia", "Natal Luz", "Chocolates artesanais"],
+        emoji: "🍫"
+      }
+    ];
+    
+    return c.json({ destinations: fallbackDestinations });
   }
 });
 
@@ -1721,17 +2008,18 @@ app.put('/make-server-5f5857fb/admin/users/:userId/role', async (c) => {
 // Listar notificações do usuário
 app.get('/make-server-5f5857fb/notifications', async (c) => {
   try {
+    console.log('========================================');
+    console.log('[Notifications] 📩 GET /notifications');
     console.log('[Notifications] Listando notificações...');
     
-    const accessToken = getAccessToken(c);
-    if (!accessToken) {
+    // Usar AuthService centralizado
+    const user = await authService.verifyRequest(c);
+    if (!user) {
+      console.log('[Notifications] ❌ Não autenticado ou token inválido');
       return c.json({ error: 'Não autenticado' }, 401);
     }
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
-    if (authError || !user) {
-      return c.json({ error: 'Token inválido' }, 401);
-    }
+    console.log('[Notifications] ✅ Token válido para usuário:', user.id);
 
     const allNotifications = await kv.getByPrefix('notification:');
     const userNotifications = allNotifications
@@ -1741,6 +2029,7 @@ app.get('/make-server-5f5857fb/notifications', async (c) => {
     const unreadCount = userNotifications.filter(n => !n.read).length;
 
     console.log('[Notifications] Encontradas:', userNotifications.length, 'Não lidas:', unreadCount);
+    console.log('========================================');
 
     return c.json({ 
       notifications: userNotifications,
@@ -1758,14 +2047,10 @@ app.put('/make-server-5f5857fb/notifications/:id/read', async (c) => {
     const notificationId = c.req.param('id');
     console.log('[Notifications] Marcando como lida:', notificationId);
     
-    const accessToken = getAccessToken(c);
-    if (!accessToken) {
+    // Usar AuthService centralizado
+    const user = await authService.verifyRequest(c);
+    if (!user) {
       return c.json({ error: 'Não autenticado' }, 401);
-    }
-
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
-    if (authError || !user) {
-      return c.json({ error: 'Token inválido' }, 401);
     }
 
     const notification = await kv.get(`notification:${notificationId}`);
@@ -1793,14 +2078,10 @@ app.put('/make-server-5f5857fb/notifications/read-all', async (c) => {
   try {
     console.log('[Notifications] Marcando todas como lidas...');
     
-    const accessToken = getAccessToken(c);
-    if (!accessToken) {
+    // Usar AuthService centralizado
+    const user = await authService.verifyRequest(c);
+    if (!user) {
       return c.json({ error: 'Não autenticado' }, 401);
-    }
-
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
-    if (authError || !user) {
-      return c.json({ error: 'Token inválido' }, 401);
     }
 
     const allNotifications = await kv.getByPrefix('notification:');
@@ -1825,14 +2106,10 @@ app.delete('/make-server-5f5857fb/notifications/:id', async (c) => {
     const notificationId = c.req.param('id');
     console.log('[Notifications] Deletando:', notificationId);
     
-    const accessToken = getAccessToken(c);
-    if (!accessToken) {
+    // Usar AuthService centralizado
+    const user = await authService.verifyRequest(c);
+    if (!user) {
       return c.json({ error: 'Não autenticado' }, 401);
-    }
-
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
-    if (authError || !user) {
-      return c.json({ error: 'Token inválido' }, 401);
     }
 
     const notification = await kv.get(`notification:${notificationId}`);
@@ -2573,18 +2850,36 @@ app.get('/make-server-5f5857fb/api/geocode', async (c) => {
     console.log('[Geocode] Buscando endereços para:', query);
 
     // Fazer requisição ao Nominatim do servidor (evita CORS)
-    // Usar addressdetails e extratags para melhor filtragem
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&extratags=1&limit=20`,
-      {
-        headers: {
-          'User-Agent': 'PlanejeFacil/1.0 (contact@planejefacil.com)'
-        }
-      }
-    );
+    // Parâmetros otimizados para autocomplete:
+    // - addressdetails=1: retorna componentes do endereço
+    // - namedetails=1: retorna variações do nome
+    // - accept-language=pt-BR,pt,en: prioriza resultados em português
+    // - limit=25: mais resultados para melhor filtragem
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(query)}` +
+      `&format=json` +
+      `&addressdetails=1` +
+      `&namedetails=1` +
+      `&accept-language=pt-BR,pt,en` +
+      `&limit=25` +
+      `&featuretype=settlement`;
 
+    console.log('[Geocode] URL da requisição:', nominatimUrl);
+
+    const response = await fetch(nominatimUrl, {
+      headers: {
+        'User-Agent': 'PlanejeFacil/1.0 (contact@planejefacil.com)'
+      }
+    });
+
+    console.log('[Geocode Service] Status da resposta:', response.status);
+    
     if (!response.ok) {
-      throw new Error('Erro ao buscar endereços no Nominatim');
+      const errorText = await response.text();
+      console.error('[Geocode Service] Erro na resposta:', response.status, errorText);
+      
+      // Retornar array vazio ao invés de erro para não quebrar o frontend
+      return c.json([]);
     }
 
     const data = await response.json();
@@ -2610,22 +2905,25 @@ app.get('/make-server-5f5857fb/api/geocode', async (c) => {
         }
         
         // Rejeitar explicitamente regiões, estados, países
-        const rejectTypes = ['state', 'region', 'country', 'county', 'province', 'administrative'];
+        const rejectTypes = ['state', 'region', 'country', 'county', 'province'];
         if (rejectTypes.includes(type) || rejectTypes.includes(addressType)) {
+          console.log(`[Geocode] ❌ Rejeitado "${place.name}" - tipo: ${type || addressType}`);
           return false;
         }
         
         // Aceitar APENAS cidades, vilas e municípios
-        const validTypes = ['city', 'town', 'village', 'municipality'];
+        const validTypes = ['city', 'town', 'village', 'municipality', 'hamlet'];
         const isValidType = validTypes.includes(type) || validTypes.includes(addressType);
         
-        // Flexibilizar: aceitar se for place OU se tiver tipo válido
+        // Aceitar se for classe "place" (localidades)
         const isPlace = placeClass === 'place';
         
-        // Deve ter endereço com cidade definida
-        const hasCity = place.address?.city || place.address?.town || place.address?.village || place.address?.municipality;
+        const accepted = isPlace || isValidType;
+        if (!accepted && data.indexOf(place) < 5) {
+          console.log(`[Geocode] ⚠️ Filtrado "${place.name}" - class: ${placeClass}, type: ${type}, addressType: ${addressType}`);
+        }
         
-        return (isPlace || isValidType) && hasCity;
+        return accepted;
       })
       // Ordenar por importância (cidades maiores primeiro)
       .sort((a: any, b: any) => {
@@ -2643,16 +2941,32 @@ app.get('/make-server-5f5857fb/api/geocode', async (c) => {
       })
       // Limitar a 8 resultados
       .slice(0, 8)
-      // Formatar resposta
-      .map((place: any) => ({
-        display_name: place.display_name,
-        name: place.name,
-        type: place.type,
-        address: place.address,
-        lat: place.lat,
-        lon: place.lon,
-        importance: place.importance
-      }));
+      // Formatar resposta com display_name limpo
+      .map((place: any) => {
+        // Criar display_name limpo: Cidade, Estado, País
+        const cityName = place.name;
+        const state = place.address?.state;
+        const country = place.address?.country;
+        
+        const parts = [cityName];
+        if (state && state !== cityName) {
+          parts.push(state);
+        }
+        if (country) {
+          parts.push(country);
+        }
+        const cleanDisplayName = parts.join(', ');
+        
+        return {
+          display_name: cleanDisplayName, // Display name limpo
+          name: place.name,
+          type: place.type,
+          address: place.address,
+          lat: place.lat,
+          lon: place.lon,
+          importance: place.importance
+        };
+      });
 
     console.log(`[Geocode] ✅ Encontradas ${cities.length} cidades válidas para: ${query}`);
     return c.json(cities);
@@ -3340,5 +3654,906 @@ app.get('/make-server-5f5857fb/premium/callback', async (c) => {
     return c.json({ error: 'Erro no callback' }, 500);
   }
 });
+
+// ============================================
+// ROTAS INTERNACIONAIS (REST Countries, ExchangeRate, Overpass, Wikipedia)
+// ============================================
+// 
+// 📋 ARQUITETURA DAS APIS:
+// 
+// 1️⃣ Nominatim (OpenStreetMap) - /geocode
+//    → Autocomplete de cidades (rápido, otimizado para busca)
+//    → Usado em: CityAutocomplete, AddTripModal
+// 
+// 2️⃣ REST Countries - /countries/*
+//    → Dados de países (moeda, bandeira, idioma)
+//    → Usado em: Viagens internacionais, conversão de moeda
+// 
+// 3️⃣ ExchangeRate-API - /exchange-rate
+//    → Taxas de câmbio em tempo real
+//    → Usado em: Orçamento internacional, conversão de valores
+// 
+// 4️⃣ Overpass API - /attractions, /cities/search
+//    → Atrações turísticas (museus, monumentos, parques)
+//    → POIs detalhados e dados geográficos complexos
+//    → Usado em: Mapa interativo, guia turístico
+// 
+// 5️⃣ Wikipedia API - /wikipedia/summary
+//    → Resumos culturais e históricos
+//    → Usado em: Guia turístico, central de informações
+// 
+// ============================================
+
+// Cache em memória (válido enquanto o edge function estiver ativo)
+const apiCache = new Map<string, { data: any; expiresAt: number }>();
+
+// Helper para cache
+function getCached<T>(key: string): T | null {
+  const cached = apiCache.get(key);
+  if (!cached) return null;
+  
+  if (Date.now() > cached.expiresAt) {
+    apiCache.delete(key);
+    return null;
+  }
+  
+  return cached.data as T;
+}
+
+function setCache(key: string, data: any, ttlMinutes: number): void {
+  apiCache.set(key, {
+    data,
+    expiresAt: Date.now() + (ttlMinutes * 60 * 1000),
+  });
+}
+
+// 1️⃣ GET /countries - Listar todos os países (com cache de 24h)
+app.get('/make-server-5f5857fb/countries', async (c) => {
+  try {
+    const cacheKey = 'all_countries';
+    const cached = getCached(cacheKey);
+    
+    if (cached) {
+      console.log('[Countries] Retornando do cache');
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log('[Countries] Buscando da REST Countries API...');
+    const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,cca3,capital,region,currencies,flags,population,latlng');
+    
+    if (!response.ok) {
+      throw new Error(`REST Countries API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Cache por 24 horas (países não mudam frequentemente)
+    setCache(cacheKey, data, 24 * 60);
+    
+    console.log(`[Countries] ✅ ${data.length} países carregados`);
+    return c.json({ success: true, data, cached: false });
+  } catch (error: any) {
+    console.error('[Countries] Erro:', error.message);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// 2️⃣ GET /countries/:code - Detalhes de um país específico
+app.get('/make-server-5f5857fb/countries/:code', async (c) => {
+  try {
+    const code = c.req.param('code').toUpperCase();
+    const cacheKey = `country_${code}`;
+    const cached = getCached(cacheKey);
+    
+    if (cached) {
+      console.log(`[Country] Retornando ${code} do cache`);
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log(`[Country] Buscando ${code} da REST Countries API...`);
+    const response = await fetch(`https://restcountries.com/v3.1/alpha/${code}`);
+    
+    if (!response.ok) {
+      throw new Error(`Country not found: ${code}`);
+    }
+
+    const data = await response.json();
+    
+    // Cache por 24 horas
+    setCache(cacheKey, data[0], 24 * 60);
+    
+    return c.json({ success: true, data: data[0], cached: false });
+  } catch (error: any) {
+    console.error('[Country] Erro:', error.message);
+    return c.json({ success: false, error: error.message }, 404);
+  }
+});
+
+// 3️⃣ GET /exchange-rate/:from/:to - Obter taxa de câmbio
+app.get('/make-server-5f5857fb/exchange-rate/:from/:to', async (c) => {
+  try {
+    const from = c.req.param('from').toUpperCase();
+    const to = c.req.param('to').toUpperCase();
+    const cacheKey = `exchange_${from}_${to}`;
+    const cached = getCached(cacheKey);
+    
+    // Cache de 1 hora para taxas de câmbio
+    if (cached) {
+      console.log(`[Exchange] Retornando ${from}→${to} do cache`);
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log(`[Exchange] Buscando taxa ${from}→${to}...`);
+    // ExchangeRate-API gratuito (1500 requests/mês)
+    const response = await fetch(`https://open.exchangerate-api.com/v6/latest/${from}`);
+    
+    if (!response.ok) {
+      throw new Error(`ExchangeRate API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.rates || !data.rates[to]) {
+      throw new Error(`Currency ${to} not found`);
+    }
+
+    const result = {
+      base: from,
+      target: to,
+      rate: data.rates[to],
+      lastUpdate: data.time_last_update_utc,
+    };
+    
+    // Cache por 1 hora (taxas mudam ao longo do dia)
+    setCache(cacheKey, result, 60);
+    
+    return c.json({ success: true, data: result, cached: false });
+  } catch (error: any) {
+    console.error('[Exchange] Erro:', error.message);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// 4️⃣ GET /attractions - Buscar pontos turísticos com Overpass API
+app.get('/make-server-5f5857fb/attractions', async (c) => {
+  try {
+    const lat = parseFloat(c.req.query('lat') || '0');
+    const lon = parseFloat(c.req.query('lon') || '0');
+    const radius = parseInt(c.req.query('radius') || '5000'); // Reduzido para 5km
+    
+    if (!lat || !lon) {
+      return c.json({ success: false, error: 'Latitude e longitude são obrigatórios' }, 400);
+    }
+
+    const cacheKey = `attractions_${lat}_${lon}_${radius}`;
+    const cached = getCached(cacheKey);
+    
+    // Cache de 7 dias (pontos turísticos não mudam rapidamente)
+    if (cached) {
+      console.log(`[Attractions] Retornando do cache (${lat}, ${lon}) - ${cached.length} atrações`);
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log(`[Attractions] Buscando pontos turísticos em raio de ${radius}m de (${lat}, ${lon})...`);
+    
+    // Query Overpass SIMPLIFICADA para evitar timeout
+    const query = `
+      [out:json][timeout:15];
+      (
+        node[~"^(tourism|historic)$"~"."](around:${radius},${lat},${lon});
+        way[~"^(tourism|historic)$"~"."](around:${radius},${lat},${lon});
+      );
+      out center 50;
+    `;
+    
+    // Tentar com timeout de 10 segundos
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    let response;
+    try {
+      response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query,
+        signal: controller.signal,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      
+      // Se der timeout ou erro, retornar array vazio mas com sucesso
+      if (fetchError.name === 'AbortError') {
+        console.log('[Attractions] ⚠️ Timeout na Overpass API, retornando lista vazia');
+        return c.json({ success: true, data: [], cached: false, message: 'Nenhuma atração encontrada no momento' });
+      }
+      throw fetchError;
+    }
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.log(`[Attractions] ⚠️ Overpass API error: ${response.status}, retornando lista vazia`);
+      return c.json({ success: true, data: [], cached: false, message: 'Nenhuma atração encontrada no momento' });
+    }
+
+    const data = await response.json();
+    
+    console.log(`[Attractions] API retornou ${data.elements?.length || 0} elementos brutos`);
+    
+    // Processar elementos com categorização melhorada
+    const attractions = data.elements.map((el: any) => {
+      // Determinar categoria principal
+      let type = 'attraction';
+      if (el.tags?.tourism) type = el.tags.tourism;
+      else if (el.tags?.historic) type = 'monument';
+      else if (el.tags?.leisure) type = el.tags.leisure === 'park' ? 'theme_park' : 'attraction';
+      else if (el.tags?.amenity) type = el.tags.amenity;
+      else if (el.tags?.natural) type = 'viewpoint';
+      
+      return {
+        id: `osm_${el.id}`,
+        name: el.tags?.name || el.tags?.['name:en'] || el.tags?.['name:pt'] || 'Sem nome',
+        type: type,
+        lat: el.lat || el.center?.lat,
+        lon: el.lon || el.center?.lon,
+        address: el.tags?.['addr:street'] || el.tags?.['addr:city'],
+        website: el.tags?.website || el.tags?.['contact:website'],
+        openingHours: el.tags?.opening_hours,
+        phone: el.tags?.phone || el.tags?.['contact:phone'],
+        wikipedia: el.tags?.wikipedia,
+        description: el.tags?.description,
+      };
+    })
+    .filter((a: any) => a.lat && a.lon && a.name !== 'Sem nome') // Filtrar inválidos
+    .slice(0, 30); // Limitar a 30 atrações
+    
+    // Cache por 7 dias
+    setCache(cacheKey, attractions, 7 * 24 * 60);
+    
+    console.log(`[Attractions] ✅ ${attractions.length} atrações válidas encontradas`);
+    return c.json({ success: true, data: attractions, cached: false });
+  } catch (error: any) {
+    console.error('[Attractions] Erro:', error.message);
+    // Retornar array vazio em vez de erro 500
+    return c.json({ success: true, data: [], cached: false, message: 'Nenhuma atração encontrada no momento' });
+  }
+});
+
+// 🆕 GET /cities/search - Buscar cidades com Overpass API
+app.get('/make-server-5f5857fb/cities/search', async (c) => {
+  try {
+    const query = c.req.query('query');
+    
+    if (!query || query.length < 2) {
+      return c.json({ success: false, error: 'Query deve ter pelo menos 2 caracteres' }, 400);
+    }
+
+    const cacheKey = `cities_${query.toLowerCase()}`;
+    const cached = getCached(cacheKey);
+    
+    // Cache de 30 dias (cidades não mudam)
+    if (cached) {
+      console.log(`[Cities] Retornando "${query}" do cache`);
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log(`[Cities] Buscando cidades: "${query}"...`);
+    
+    // Query Overpass: buscar cidades, vilas e municípios
+    const overpassQuery = `
+      [out:json][timeout:25];
+      (
+        node["place"~"city|town|village"]["name"~"${query}",i];
+        area["place"~"city|town|village"]["name"~"${query}",i];
+      );
+      out body;
+      >;
+      out skel qt;
+    `;
+    
+    const response = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: overpassQuery,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Overpass API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Processar elementos e priorizar cidades maiores
+    const cities = data.elements
+      .filter((el: any) => el.tags?.name && el.tags?.place)
+      .map((el: any) => {
+        // Extrair informações de localização
+        const name = el.tags.name;
+        const place = el.tags.place; // city, town, village
+        const country = el.tags['addr:country'] || el.tags['is_in:country'] || '';
+        const state = el.tags['addr:state'] || el.tags['is_in:state'] || '';
+        const population = parseInt(el.tags.population || '0');
+        
+        // Calcular prioridade (cidades grandes primeiro)
+        const placeOrder: any = { city: 1, town: 2, village: 3 };
+        const priority = placeOrder[place] || 999;
+        
+        return {
+          name,
+          display_name: [name, state, country].filter(Boolean).join(', '),
+          type: place,
+          address: {
+            city: name,
+            state,
+            country,
+          },
+          lat: el.lat?.toString() || '',
+          lon: el.lon?.toString() || '',
+          population,
+          priority,
+        };
+      })
+      // Ordenar por prioridade e população
+      .sort((a: any, b: any) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        return b.population - a.population;
+      })
+      // Limitar a 10 resultados
+      .slice(0, 10);
+    
+    console.log(`[Cities] ✅ Encontradas ${cities.length} cidades para: "${query}"`);
+    
+    // Cache por 30 dias
+    setCache(cacheKey, cities, 30 * 24 * 60);
+    
+    return c.json({ success: true, data: cities, cached: false });
+  } catch (error: any) {
+    console.error('[Cities] Erro:', error.message);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// 5️⃣ GET /wikipedia/summary - Buscar resumo da Wikipedia
+app.get('/make-server-5f5857fb/wikipedia/summary', async (c) => {
+  try {
+    const title = c.req.query('title');
+    const lang = c.req.query('lang') || 'pt'; // Padrão: português
+    
+    if (!title) {
+      return c.json({ success: false, error: 'Título é obrigatório' }, 400);
+    }
+
+    const cacheKey = `wiki_${lang}_${title}`;
+    const cached = getCached(cacheKey);
+    
+    // Cache de 30 dias (conteúdo da Wikipedia é estável)
+    if (cached) {
+      console.log(`[Wikipedia] Retornando "${title}" (${lang}) do cache`);
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log(`[Wikipedia] Buscando "${title}" (${lang})...`);
+    
+    const response = await fetch(
+      `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Wikipedia API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    const summary = {
+      title: data.title,
+      extract: data.extract,
+      thumbnail: data.thumbnail,
+      coordinates: data.coordinates,
+      pageUrl: data.content_urls?.desktop?.page,
+    };
+    
+    // Cache por 30 dias
+    setCache(cacheKey, summary, 30 * 24 * 60);
+    
+    return c.json({ success: true, data: summary, cached: false });
+  } catch (error: any) {
+    console.error('[Wikipedia] Erro:', error.message);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// 6️⃣ GET /geocode - Geocodificar cidade/endereço (usando Nominatim - OpenStreetMap)
+app.get('/make-server-5f5857fb/geocode', async (c) => {
+  try {
+    const query = c.req.query('q');
+    
+    if (!query) {
+      return c.json({ success: false, error: 'Query é obrigatório' }, 400);
+    }
+
+    const cacheKey = `geocode_${query}`;
+    const cached = getCached(cacheKey);
+    
+    // Cache de 30 dias (coordenadas de cidades não mudam)
+    if (cached) {
+      console.log(`[Geocode] Retornando "${query}" do cache`);
+      return c.json({ success: true, data: cached, cached: true });
+    }
+
+    console.log(`[Geocode] Buscando coordenadas para "${query}"...`);
+    
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'PlanejeViagem/1.0 (https://planejeviagem.com.br)',
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Nominatim API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Cache por 30 dias
+    setCache(cacheKey, data, 30 * 24 * 60);
+    
+    console.log(`[Geocode] ✅ ${data.length} resultados encontrados`);
+    return c.json({ success: true, data, cached: false });
+  } catch (error: any) {
+    console.error('[Geocode] Erro:', error.message);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// FEATURE 2: EXCHANGE RATE APIs
+// ============================================================================
+
+// Cache simples em memória (em produção, usar Redis ou similar)
+const exchangeCache: Map<string, { data: any; timestamp: number }> = new Map();
+const EXCHANGE_CACHE_DURATION = 60 * 60 * 1000; // 1 hora
+
+// Simular histórico de 30 dias (em produção, buscar de API real ou database)
+function generateHistoricalRates(currentRate: number, days: number = 30): any[] {
+  const history: any[] = [];
+  const today = new Date();
+  
+  for (let i = days; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    // Simular variação de ±5% da taxa atual
+    const variation = (Math.random() - 0.5) * 0.1; // -5% a +5%
+    const rate = currentRate * (1 + variation);
+    
+    history.push({
+      date: date.toISOString().split('T')[0],
+      rate: parseFloat(rate.toFixed(4)),
+      high: parseFloat((rate * 1.02).toFixed(4)),
+      low: parseFloat((rate * 0.98).toFixed(4)),
+    });
+  }
+  
+  return history;
+}
+
+// Analisar tendência do histórico
+function analyzeTrend(history: any[]): {
+  trend: 'up' | 'down' | 'stable';
+  variation: number;
+  recommendation: string;
+  bestMoment: 'now' | 'wait' | 'monitor';
+} {
+  if (history.length < 7) {
+    return {
+      trend: 'stable',
+      variation: 0,
+      recommendation: 'Dados insuficientes para análise',
+      bestMoment: 'monitor',
+    };
+  }
+
+  const recentRates = history.slice(-7).map(h => h.rate);
+  const olderRates = history.slice(0, 7).map(h => h.rate);
+  
+  const recentAvg = recentRates.reduce((a, b) => a + b) / recentRates.length;
+  const olderAvg = olderRates.reduce((a, b) => a + b) / olderRates.length;
+  
+  const variation = ((recentAvg - olderAvg) / olderAvg) * 100;
+  
+  let trend: 'up' | 'down' | 'stable' = 'stable';
+  let recommendation = '';
+  let bestMoment: 'now' | 'wait' | 'monitor' = 'monitor';
+  
+  if (variation > 2) {
+    trend = 'up';
+    recommendation = 'A moeda está em alta. Considere aguardar alguns dias para uma possível queda.';
+    bestMoment = 'wait';
+  } else if (variation < -2) {
+    trend = 'down';
+    recommendation = 'A moeda está em queda. Bom momento para comprar!';
+    bestMoment = 'now';
+  } else {
+    trend = 'stable';
+    recommendation = 'A moeda está estável. Você pode comprar agora com segurança.';
+    bestMoment = 'now';
+  }
+  
+  return {
+    trend,
+    variation: parseFloat(variation.toFixed(2)),
+    recommendation,
+    bestMoment,
+  };
+}
+
+// Informações completas das moedas
+function getCurrencyInfo(code: string): any {
+  const currencyData: Record<string, any> = {
+    // Américas
+    'BRL': { code: 'BRL', name: 'Real Brasileiro', flag: '🇧🇷', region: 'Américas', symbol: 'R$' },
+    'USD': { code: 'USD', name: 'Dólar Americano', flag: '🇺🇸', region: 'Américas', symbol: '$' },
+    'CAD': { code: 'CAD', name: 'Dólar Canadense', flag: '🇨🇦', region: 'Américas', symbol: 'C$' },
+    'MXN': { code: 'MXN', name: 'Peso Mexicano', flag: '🇲🇽', region: 'Américas', symbol: 'MX$' },
+    'ARS': { code: 'ARS', name: 'Peso Argentino', flag: '🇦🇷', region: 'Américas', symbol: 'AR$' },
+    'CLP': { code: 'CLP', name: 'Peso Chileno', flag: '🇨🇱', region: 'Américas', symbol: 'CL$' },
+    'COP': { code: 'COP', name: 'Peso Colombiano', flag: '🇨🇴', region: 'Américas', symbol: 'CO$' },
+    'PEN': { code: 'PEN', name: 'Sol Peruano', flag: '🇵🇪', region: 'Américas', symbol: 'S/' },
+    'UYU': { code: 'UYU', name: 'Peso Uruguaio', flag: '🇺🇾', region: 'Américas', symbol: 'UY$' },
+    
+    // Europa
+    'EUR': { code: 'EUR', name: 'Euro', flag: '🇪🇺', region: 'Europa', symbol: '€' },
+    'GBP': { code: 'GBP', name: 'Libra Esterlina', flag: '🇬🇧', region: 'Europa', symbol: '£' },
+    'CHF': { code: 'CHF', name: 'Franco Suíço', flag: '🇨🇭', region: 'Europa', symbol: 'CHF' },
+    'SEK': { code: 'SEK', name: 'Coroa Sueca', flag: '🇸🇪', region: 'Europa', symbol: 'kr' },
+    'NOK': { code: 'NOK', name: 'Coroa Norueguesa', flag: '🇳🇴', region: 'Europa', symbol: 'kr' },
+    'DKK': { code: 'DKK', name: 'Coroa Dinamarquesa', flag: '🇩🇰', region: 'Europa', symbol: 'kr' },
+    'PLN': { code: 'PLN', name: 'Zloty Polonês', flag: '🇵🇱', region: 'Europa', symbol: 'zł' },
+    'CZK': { code: 'CZK', name: 'Coroa Tcheca', flag: '🇨🇿', region: 'Europa', symbol: 'Kč' },
+    'HUF': { code: 'HUF', name: 'Forint Húngaro', flag: '🇭🇺', region: 'Europa', symbol: 'Ft' },
+    'RON': { code: 'RON', name: 'Leu Romeno', flag: '🇷🇴', region: 'Europa', symbol: 'lei' },
+    'RUB': { code: 'RUB', name: 'Rublo Russo', flag: '🇷🇺', region: 'Europa', symbol: '₽' },
+    'TRY': { code: 'TRY', name: 'Lira Turca', flag: '🇹🇷', region: 'Europa', symbol: '₺' },
+    
+    // Ásia
+    'JPY': { code: 'JPY', name: 'Iene Japonês', flag: '🇯🇵', region: 'Ásia', symbol: '¥' },
+    'CNY': { code: 'CNY', name: 'Yuan Chinês', flag: '🇨🇳', region: 'Ásia', symbol: '¥' },
+    'KRW': { code: 'KRW', name: 'Won Sul-Coreano', flag: '🇰🇷', region: 'Ásia', symbol: '₩' },
+    'INR': { code: 'INR', name: 'Rúpia Indiana', flag: '🇮🇳', region: 'Ásia', symbol: '₹' },
+    'SGD': { code: 'SGD', name: 'Dólar de Singapura', flag: '🇸🇬', region: 'Ásia', symbol: 'S$' },
+    'HKD': { code: 'HKD', name: 'Dólar de Hong Kong', flag: '🇭🇰', region: 'Ásia', symbol: 'HK$' },
+    'THB': { code: 'THB', name: 'Baht Tailandês', flag: '🇹🇭', region: 'Ásia', symbol: '฿' },
+    'MYR': { code: 'MYR', name: 'Ringgit Malaio', flag: '🇲🇾', region: 'Ásia', symbol: 'RM' },
+    'IDR': { code: 'IDR', name: 'Rupia Indonésia', flag: '🇮🇩', region: 'Ásia', symbol: 'Rp' },
+    'PHP': { code: 'PHP', name: 'Peso Filipino', flag: '🇵🇭', region: 'Ásia', symbol: '₱' },
+    'VND': { code: 'VND', name: 'Dong Vietnamita', flag: '🇻🇳', region: 'Ásia', symbol: '₫' },
+    'PKR': { code: 'PKR', name: 'Rúpia Paquistanesa', flag: '🇵🇰', region: 'Ásia', symbol: '₨' },
+    'BDT': { code: 'BDT', name: 'Taka de Bangladesh', flag: '🇧🇩', region: 'Ásia', symbol: '৳' },
+    
+    // Oceania
+    'AUD': { code: 'AUD', name: 'Dólar Australiano', flag: '🇦🇺', region: 'Oceania', symbol: 'A$' },
+    'NZD': { code: 'NZD', name: 'Dólar Neozelandês', flag: '🇳🇿', region: 'Oceania', symbol: 'NZ$' },
+    
+    // Oriente Médio
+    'AED': { code: 'AED', name: 'Dirham dos Emirados', flag: '🇦🇪', region: 'Oriente Médio', symbol: 'د.إ' },
+    'SAR': { code: 'SAR', name: 'Riyal Saudita', flag: '🇸🇦', region: 'Oriente Médio', symbol: '﷼' },
+    'ILS': { code: 'ILS', name: 'Shekel Israelense', flag: '🇮🇱', region: 'Oriente Médio', symbol: '₪' },
+    'QAR': { code: 'QAR', name: 'Riyal do Catar', flag: '🇶🇦', region: 'Oriente Médio', symbol: 'ر.ق' },
+    'KWD': { code: 'KWD', name: 'Dinar Kuwaitiano', flag: '🇰🇼', region: 'Oriente Médio', symbol: 'د.ك' },
+    
+    // África
+    'ZAR': { code: 'ZAR', name: 'Rand Sul-Africano', flag: '🇿🇦', region: 'África', symbol: 'R' },
+    'EGP': { code: 'EGP', name: 'Libra Egípcia', flag: '🇪🇬', region: 'África', symbol: 'E£' },
+    'NGN': { code: 'NGN', name: 'Naira Nigeriana', flag: '🇳🇬', region: 'África', symbol: '₦' },
+    'KES': { code: 'KES', name: 'Xelim Queniano', flag: '🇰🇪', region: 'África', symbol: 'KSh' },
+    'MAD': { code: 'MAD', name: 'Dirham Marroquino', flag: '🇲🇦', region: 'África', symbol: 'د.م.' },
+  };
+  
+  return currencyData[code] || null;
+}
+
+// Buscar taxa de câmbio de API externa
+async function fetchExchangeRate(from: string, to: string): Promise<number> {
+  const cacheKey = `rate:${from}:${to}`;
+  const cached = exchangeCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < EXCHANGE_CACHE_DURATION) {
+    console.log(`[Exchange] Cache hit for ${from}→${to}`);
+    return cached.data;
+  }
+  
+  try {
+    // Usar ExchangeRate-API (gratuito)
+    const response = await fetch(
+      `https://api.exchangerate-api.com/v4/latest/${from}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const rate = data.rates[to];
+    
+    if (!rate) {
+      throw new Error(`Currency ${to} not found`);
+    }
+    
+    // Cachear resultado
+    exchangeCache.set(cacheKey, { data: rate, timestamp: Date.now() });
+    
+    console.log(`[Exchange] Fetched rate ${from}→${to}: ${rate}`);
+    return rate;
+  } catch (error) {
+    console.error(`[Exchange] Error fetching rate:`, error);
+    throw error; // Não usar fallback - forçar uso de API real
+  }
+}
+
+// Calcular quanto levar em espécie
+function calculateCashRecommendation(
+  totalBudget: number,
+  days: number,
+  destination: string
+): {
+  cash: number;
+  card: number;
+  cashPercentage: number;
+  cardPercentage: number;
+  recommendations: string[];
+} {
+  // Recomendações variam por destino
+  const cashRecommendations: Record<string, number> = {
+    // Europa - menos espécie (cartão amplamente aceito)
+    'France': 20,
+    'Germany': 25,
+    'Italy': 30,
+    'Spain': 25,
+    'Portugal': 30,
+    'United Kingdom': 15,
+    
+    // Ásia - mais espécie (muitos lugares só aceitam dinheiro)
+    'Japan': 40,
+    'Thailand': 50,
+    'China': 30,
+    'India': 60,
+    'Vietnam': 55,
+    
+    // Américas
+    'United States': 20,
+    'Canada': 20,
+    'Mexico': 35,
+    'Argentina': 40,
+    'Chile': 30,
+    
+    // Oceania
+    'Australia': 20,
+    'New Zealand': 20,
+    
+    // África
+    'South Africa': 35,
+    'Morocco': 45,
+    'Egypt': 50,
+    
+    // Oriente Médio
+    'United Arab Emirates': 30,
+  };
+  
+  const cashPercentage = cashRecommendations[destination] || 30; // Default 30%
+  const cardPercentage = 100 - cashPercentage;
+  
+  const cash = (totalBudget * cashPercentage) / 100;
+  const card = totalBudget - cash;
+  
+  const recommendations: string[] = [];
+  
+  // Recomendações gerais
+  recommendations.push(
+    `Leve ${cashPercentage}% em espécie para pequenas despesas e locais que não aceitam cartão.`
+  );
+  recommendations.push(
+    `Use cartão de crédito internacional para ${cardPercentage}% dos gastos (hotéis, restaurantes, compras).`
+  );
+  
+  // Recomendações específicas por destino
+  if (cashPercentage >= 50) {
+    recommendations.push(
+      '⚠️ Este destino tem preferência por dinheiro em espécie. Certifique-se de trocar em casas de câmbio confiáveis.'
+    );
+  }
+  
+  if (cashPercentage <= 20) {
+    recommendations.push(
+      '💳 Cartões são amplamente aceitos neste destino. Priorize pagamentos digitais para segurança.'
+    );
+  }
+  
+  // Dicas de segurança
+  recommendations.push(
+    '🔐 Nunca carregue todo o dinheiro em um só lugar. Divida entre carteira, bolsa e cofre do hotel.'
+  );
+  
+  recommendations.push(
+    `💡 Para ${days} dias, considere levar dinheiro suficiente para os primeiros dias e sacar o restante em ATMs locais conforme necessário.`
+  );
+  
+  return {
+    cash: parseFloat(cash.toFixed(2)),
+    card: parseFloat(card.toFixed(2)),
+    cashPercentage,
+    cardPercentage,
+    recommendations,
+  };
+}
+
+// GET /api/exchange/currencies - Lista de moedas disponíveis
+app.get('/make-server-5f5857fb/api/exchange/currencies', async (c) => {
+  try {
+    console.log('[Exchange] GET available currencies');
+    
+    // Buscar moedas disponíveis da API
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const availableCodes = Object.keys(data.rates);
+    
+    // Mapear para estrutura completa com informações de cada moeda
+    const currencies = availableCodes.map((code: string) => {
+      return getCurrencyInfo(code);
+    }).filter((c: any) => c !== null);
+    
+    console.log(`[Exchange] ✅ Returning ${currencies.length} currencies`);
+    
+    return c.json({
+      currencies,
+      total: currencies.length,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Exchange] Error fetching currencies:', error);
+    return c.json({ error: 'Failed to fetch currencies' }, 500);
+  }
+});
+
+// GET /api/exchange/rate/:from/:to - Taxa de câmbio atual
+app.get('/make-server-5f5857fb/api/exchange/rate/:from/:to', async (c) => {
+  try {
+    const from = c.req.param('from').toUpperCase();
+    const to = c.req.param('to').toUpperCase();
+    
+    console.log(`[Exchange] GET rate ${from}→${to}`);
+    
+    const rate = await fetchExchangeRate(from, to);
+    
+    return c.json({
+      from,
+      to,
+      rate,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Exchange] Error:', error);
+    return c.json({ error: 'Failed to fetch exchange rate' }, 500);
+  }
+});
+
+// GET /api/exchange/history/:from/:to - Histórico de 30 dias
+app.get('/make-server-5f5857fb/api/exchange/history/:from/:to', async (c) => {
+  try {
+    const from = c.req.param('from').toUpperCase();
+    const to = c.req.param('to').toUpperCase();
+    const days = parseInt(c.req.query('days') || '30');
+    
+    console.log(`[Exchange] GET history ${from}→${to} (${days} days)`);
+    
+    // Buscar taxa atual
+    const currentRate = await fetchExchangeRate(from, to);
+    
+    // Gerar histórico simulado
+    const history = generateHistoricalRates(currentRate, days);
+    
+    return c.json({
+      from,
+      to,
+      currentRate,
+      history,
+      period: `${days} days`,
+    });
+  } catch (error) {
+    console.error('[Exchange] Error:', error);
+    return c.json({ error: 'Failed to fetch history' }, 500);
+  }
+});
+
+// GET /api/exchange/trend/:from/:to - Análise de tendência
+app.get('/make-server-5f5857fb/api/exchange/trend/:from/:to', async (c) => {
+  try {
+    const from = c.req.param('from').toUpperCase();
+    const to = c.req.param('to').toUpperCase();
+    
+    console.log(`[Exchange] GET trend ${from}→${to}`);
+    
+    // Buscar taxa atual e histórico
+    const currentRate = await fetchExchangeRate(from, to);
+    const history = generateHistoricalRates(currentRate, 30);
+    
+    // Analisar tendência
+    const analysis = analyzeTrend(history);
+    
+    return c.json({
+      from,
+      to,
+      currentRate,
+      ...analysis,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Exchange] Error:', error);
+    return c.json({ error: 'Failed to analyze trend' }, 500);
+  }
+});
+
+// POST /api/exchange/calculate-cash - Calculadora de espécie
+app.post('/make-server-5f5857fb/api/exchange/calculate-cash', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { totalBudget, days, destination, currency } = body;
+    
+    console.log(`[Exchange] Calculate cash for ${destination}`);
+    
+    if (!totalBudget || !days || !destination) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+    
+    // Calcular recomendação
+    const recommendation = calculateCashRecommendation(
+      totalBudget,
+      days,
+      destination
+    );
+    
+    // Se tiver moeda estrangeira, converter valores
+    let cashInLocalCurrency = recommendation.cash;
+    let cardInLocalCurrency = recommendation.card;
+    let exchangeRate = 1;
+    
+    if (currency && currency !== 'BRL') {
+      exchangeRate = await fetchExchangeRate('BRL', currency);
+      cashInLocalCurrency = recommendation.cash * exchangeRate;
+      cardInLocalCurrency = recommendation.card * exchangeRate;
+    }
+    
+    return c.json({
+      totalBudget,
+      days,
+      destination,
+      currency: currency || 'BRL',
+      exchangeRate,
+      inBRL: {
+        cash: recommendation.cash,
+        card: recommendation.card,
+      },
+      inLocalCurrency: {
+        cash: parseFloat(cashInLocalCurrency.toFixed(2)),
+        card: parseFloat(cardInLocalCurrency.toFixed(2)),
+      },
+      percentages: {
+        cash: recommendation.cashPercentage,
+        card: recommendation.cardPercentage,
+      },
+      recommendations: recommendation.recommendations,
+    });
+  } catch (error) {
+    console.error('[Exchange] Error:', error);
+    return c.json({ error: 'Failed to calculate cash' }, 500);
+  }
+});
+
+console.log('[Exchange] ✅ Routes registered');
 
 Deno.serve(app.fetch);

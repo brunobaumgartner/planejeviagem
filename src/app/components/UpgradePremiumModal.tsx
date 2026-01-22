@@ -30,6 +30,7 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`,
         {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
         }
@@ -62,7 +63,7 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken || publicAnonKey}`,
+            'Authorization': `Bearer ${publicAnonKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -86,7 +87,19 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
       } else {
         // Modo produção: redirecionar para Mercado Pago
         if (data.init_point) {
-          window.location.href = data.init_point;
+          console.log('[UpgradePremiumModal] 🔗 Abrindo checkout em nova aba:', data.init_point);
+          const newWindow = window.open(data.init_point, '_blank');
+          
+          if (!newWindow) {
+            console.error('[UpgradePremiumModal] ❌ Popup bloqueado');
+            setError('Por favor, permita popups para continuar com o pagamento.');
+            setProcessing(false);
+            return;
+          }
+          
+          console.log('[UpgradePremiumModal] ✅ Nova aba aberta com sucesso!');
+          setProcessing(false);
+          onClose();
         } else {
           throw new Error('Link de pagamento não recebido');
         }

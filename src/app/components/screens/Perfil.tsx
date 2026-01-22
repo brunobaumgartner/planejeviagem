@@ -197,9 +197,9 @@ export function Perfil() {
             >
               {isUpgrading ? 'Processando...' : 'Fazer Upgrade Agora'}
             </button>
-            <p className="text-center text-xs text-white/80 mt-2">
+            {/* <p className="text-center text-xs text-white/80 mt-2">
               * Para teste: upgrade gratuito
-            </p>
+            </p> */}
           </div>
         )}
 

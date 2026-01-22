@@ -22,7 +22,8 @@ import {
   Crown,
   DollarSign,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Book
 } from 'lucide-react';
 
 type TestCategory = 'auth' | 'trips' | 'premium' | 'features' | 'admin';
@@ -34,7 +35,7 @@ interface TestStep {
   instructions: string[];
   highlight?: {
     type: 'card' | 'success' | 'warning';
-    title: string;
+    title: 'Modo Guest' | 'Conta Criada!' | 'Viagem Criada!' | 'Orçamento Inteligente' | 'Upgrade para Premium' | 'Cartão de Teste' | 'Premium Ativo!' | 'Teste Rápido de Premium (Desenvolvimento)' | 'Apenas para Testes' | 'Acesso Restrito' | 'Dados Reais e Atualizados' | 'Anexos Funcionais!';
     content: string;
   };
 }
@@ -46,13 +47,15 @@ export function TestHelper() {
 
   if (!isOpen) {
     return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-4 z-50 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
-        title="Guia de Teste Completo"
-      >
-        <Info className="w-6 h-6" />
-      </button>
+      <>
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-24 right-4 z-50 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+          title="Guia de Teste Completo"
+        >
+          <Info className="w-6 h-6" />
+        </button>
+      </>
     );
   }
 
@@ -267,7 +270,7 @@ export function TestHelper() {
         'Crie uma viagem primeiro (modo Logado)',
         'Na lista, clique em "Comprar Planejamento Personalizado"',
         'Modal exibe benefícios: roteiro completo, checklist, recomendações',
-        'Preço: R$ 1,00',
+        'Preço: R$ 299,90',
         'Clique em "Comprar Agora"',
         'Aguarde redirecionamento ao Mercado Pago',
       ],
@@ -391,6 +394,26 @@ export function TestHelper() {
         'Marque documentos que você já tem',
         'Status mostra quantidade preparada vs total',
       ],
+    },
+    {
+      title: 'Guia Turístico Automático (Wikipedia)',
+      icon: '📚',
+      category: 'features',
+      instructions: [
+        '🌍 Abra o console do navegador (F12)',
+        '📝 Digite: window.location.hash = "#wiki-guide"',
+        '🔄 Pressione Enter e recarregue a página',
+        '🎯 Você verá a página demo do Guia Turístico',
+        '🔍 Busque qualquer cidade do mundo',
+        '📖 Explore informações culturais da Wikipedia',
+        '🖼️ Galeria de fotos, história e dicas',
+        '🌐 Troque entre PT, EN e ES',
+      ],
+      highlight: {
+        type: 'success',
+        title: 'Feature 4: 100% Implementada!',
+        content: 'Wikipedia API + Multi-idioma + Cache inteligente! 🎉',
+      },
     },
 
     // ============================================

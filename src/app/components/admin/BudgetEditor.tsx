@@ -48,6 +48,7 @@ export function BudgetEditor() {
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/admin/city-budgets`,
         {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
             'X-User-Token': accessToken || '',
           },
@@ -372,8 +373,15 @@ export function BudgetEditor() {
     const country = place.address?.country || '';
     const state = place.address?.state || '';
     
-    // Criar display simplificado: "Cidade, Estado"
-    const displayName = state ? `${cityName}, ${state}` : cityName;
+    // Criar display limpo: "Cidade, Estado, País"
+    const parts = [cityName];
+    if (state && state !== cityName) {
+      parts.push(state);
+    }
+    if (country) {
+      parts.push(country);
+    }
+    const displayName = parts.join(', ');
 
     if (isOrigin) {
       setOriginInput(displayName);

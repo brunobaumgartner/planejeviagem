@@ -65,6 +65,7 @@ export function ServiceStatus() {
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/health`,
         {
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
         }
