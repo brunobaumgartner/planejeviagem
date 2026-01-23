@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { Logo } from '@/app/components/Logo';
 import { UserBadge } from '@/app/components/UserBadge';
+import { TopNavigation } from '@/app/components/TopNavigation';
+import { BottomNavigation } from '@/app/components/BottomNavigation';
 import type { ItineraryDay, ItineraryActivity } from '@/types/trip';
 import { ItineraryEditor } from '@/app/components/ItineraryEditor';
 import type { Trip } from '@/types/trip';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigation } from '@/app/context/NavigationContext';
 import { useTrips } from '@/app/context/TripsContext';
-import { BottomNavigation } from '@/app/components/BottomNavigation';
 import { 
   MapPin, 
   Calendar, 
@@ -57,15 +58,15 @@ export function Roteiro() {
 
         if (response.ok) {
           const data = await response.json();
-          setPlanningPrice(data.planning_price || 49.90);
-          console.log('[Roteiro] ✅ Preço carregado:', data.planning_price);
+          setPlanningPrice(data.planning_package_price || 49.90);
+          console.log('[Roteiro] ✅ Preço carregado:', data.planning_package_price);
         } else {
           console.warn('[Roteiro] ⚠️ Erro ao carregar preço, usando fallback');
           setPlanningPrice(49.90);
         }
       } catch (error) {
         console.error('[Roteiro] ❌ Erro ao buscar preço:', error);
-        setPlanningPrice(49.90); // Fallback
+        setPlanningPrice(49.90);
       }
     };
 
@@ -97,8 +98,12 @@ export function Roteiro() {
   // GUEST: Blocked from accessing itineraries
   if (isGuest) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
-        <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
+      <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+        {/* Top Navigation - Desktop only */}
+        <TopNavigation activeTab="itinerary" />
+        
+        {/* Header - Mobile only */}
+        <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setCurrentScreen('home')}
@@ -157,8 +162,12 @@ export function Roteiro() {
 
   // LOGGED USER: Show trips list
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
+    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+      {/* Top Navigation - Desktop only */}
+      <TopNavigation activeTab="itinerary" />
+      
+      {/* Header - Mobile only */}
+      <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setCurrentScreen('home')}

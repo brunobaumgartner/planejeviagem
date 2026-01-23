@@ -5,6 +5,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import * as dataFetcher from './data-fetcher.tsx';
 import { AuthService } from './auth.tsx';
+import travelpayoutsRoutes from './travelpayouts.tsx';
 
 const app = new Hono();
 
@@ -362,7 +363,7 @@ app.post('/make-server-5f5857fb/test-jwt', async (c) => {
 // Sign up
 app.post('/make-server-5f5857fb/auth/signup', async (c) => {
   try {
-    const { email, password, name } = await c.req.json();
+    const { email, password, name, homeCity } = await c.req.json();
 
     if (!email || !password || !name) {
       return c.json({ error: 'Email, senha e nome são obrigatórios' }, 400);
@@ -374,7 +375,7 @@ app.post('/make-server-5f5857fb/auth/signup', async (c) => {
       email,
       password,
       email_confirm: true, // Auto-confirm since we don't have email server configured
-      user_metadata: { name },
+      user_metadata: { name, homeCity },
     });
 
     if (authError) {
@@ -382,8 +383,13 @@ app.post('/make-server-5f5857fb/auth/signup', async (c) => {
       return c.json({ error: authError.message }, 400);
     }
 
-    // Profile is automatically created by database trigger (handle_new_user)
-    // No need to manually insert into profiles table
+    // If homeCity was provided, update the profile (created by trigger)
+    if (homeCity) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ home_city: homeCity })
+        .eq('id', authData.user.id);
+    }
 
     return c.json({ 
       success: true,
@@ -400,48 +406,71 @@ app.post('/make-server-5f5857fb/auth/signup', async (c) => {
 // Create premium subscription payment (Mercado Pago)
 app.post('/make-server-5f5857fb/premium/create-payment', async (c) => {
   try {
+    console.log('[Premium Payment] 📥 Request recebido');
+    console.log('='.repeat(60));
+    
+    // 🔍 DIAGNÓSTICO COMPLETO DO TOKEN
+    const authHeader = c.req.header('Authorization');
+    console.log('[Premium Payment] 🔑 AUTH HEADER:', authHeader);
+    console.log('[Premium Payment] 🔑 Header length:', authHeader?.length || 0);
+    console.log('[Premium Payment] 🔑 Starts with Bearer?:', authHeader?.startsWith('Bearer '));
+    
     const { userId, plan } = await c.req.json(); // plan: 'monthly' | 'annual'
 
+    console.log('[Premium Payment] Dados recebidos:', { userId, plan });
+
     if (!userId || !plan) {
+      console.error('[Premium Payment] ❌ Dados faltando:', { userId, plan });
       return c.json({ error: 'userId e plan são obrigatórios' }, 400);
     }
 
     // Verificar configurações de preço
+    console.log('[Premium Payment] 🔍 Buscando config de preços...');
     const config = await kv.get('pricing_config');
+    console.log('[Premium Payment] Config encontrada:', config);
+    
     if (!config) {
-      return c.json({ error: 'Configurações de preço não encontradas' }, 500);
+      console.error('[Premium Payment] ❌ Config não encontrada no KV store');
+      // Criar config padrão se não existir
+      const defaultConfig = {
+        test_mode: true,
+        premium_monthly_price: 19.90,
+        premium_annual_price: 199.00,
+        planning_package_price: 299.90
+      };
+      await kv.set('pricing_config', defaultConfig);
+      console.log('[Premium Payment] ✅ Config padrão criada');
+      return c.json({ error: 'Configurações criadas. Tente novamente.' }, 500);
     }
 
     // Verificar se está em modo teste
     if (config.test_mode) {
       console.log('[Premium Payment] 🧪 MODO TESTE: Upgrade gratuito');
-      
-      // Calcular data de expiração
-      const now = new Date();
-      const premiumUntil = plan === 'monthly' 
-        ? new Date(now.setMonth(now.getMonth() + 1))
-        : new Date(now.setFullYear(now.getFullYear() + 1));
 
-      // Atualizar usuário
-      const { error } = await supabaseAdmin
+      // Atualizar usuário - apenas role (simplificado)
+      console.log('[Premium Payment] 💾 Atualizando perfil do usuário para premium...');
+      const { error, data: updateData } = await supabaseAdmin
         .from('profiles')
-        .update({ 
-          role: 'premium',
-          premium_until: premiumUntil.toISOString(),
-          premium_plan: plan,
-        })
-        .eq('id', userId);
+        .update({ role: 'premium' })
+        .eq('id', userId)
+        .select();
 
       if (error) {
-        console.error('[Premium Payment] Erro ao fazer upgrade:', error);
-        return c.json({ error: 'Erro ao fazer upgrade' }, 500);
+        console.error('[Premium Payment] ❌ Erro ao fazer upgrade:', error);
+        return c.json({ 
+          error: 'Erro ao fazer upgrade',
+          details: error.message,
+          hint: 'Verifique se a tabela profiles existe com a coluna role'
+        }, 500);
       }
+
+      console.log('[Premium Payment] ✅ Upgrade realizado com sucesso:', updateData);
 
       return c.json({ 
         success: true, 
         test_mode: true,
-        message: 'Upgrade realizado com sucesso (modo teste)',
-        premium_until: premiumUntil.toISOString(),
+        message: 'Upgrade realizado com sucesso! Você agora é Premium 🎉',
+        role: 'premium',
       });
     }
 
@@ -540,6 +569,35 @@ app.post('/make-server-5f5857fb/auth/upgrade-premium', async (c) => {
   } catch (error) {
     console.error('Upgrade error:', error);
     return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// ============================================
+// TEST MODE TOGGLE (desenvolvimento)
+// ============================================
+app.post('/make-server-5f5857fb/test-mode/enable', async (c) => {
+  try {
+    console.log('[Test Mode] Ativando modo teste...');
+    
+    const currentConfig = await kv.get('pricing_config') || {};
+    
+    const newConfig = {
+      ...currentConfig,
+      test_mode: true,
+      premium_monthly_price: currentConfig.premium_monthly_price || 19.90,
+      premium_annual_price: currentConfig.premium_annual_price || 199.00,
+      planning_package_price: currentConfig.planning_package_price || 49.90,
+      updated_at: new Date().toISOString(),
+      updated_by: 'dev-toggle',
+    };
+    
+    await kv.set('pricing_config', newConfig);
+    
+    console.log('[Test Mode] ✅ Modo teste ATIVADO:', newConfig);
+    return c.json({ success: true, message: 'Modo teste ativado!', config: newConfig });
+  } catch (error: any) {
+    console.error('[Test Mode] Erro:', error);
+    return c.json({ error: error.message }, 500);
   }
 });
 
@@ -1010,9 +1068,28 @@ app.post('/make-server-5f5857fb/payments/create-checkout', async (c) => {
 
     const { tripId, amount, title, description } = await c.req.json();
 
-    if (!tripId || !amount) {
-      return c.json({ error: 'tripId e amount são obrigatórios' }, 400);
+    if (!tripId) {
+      return c.json({ error: 'tripId é obrigatório' }, 400);
     }
+
+    // 🔒 SEGURANÇA: SEMPRE buscar o preço do banco, NUNCA confiar no frontend
+    console.log('[Payments] 🔒 Buscando preço real do banco...');
+    let realPrice = 49.90; // Fallback padrão
+    
+    try {
+      const pricingConfig = await kv.get('pricing_config');
+      if (pricingConfig && pricingConfig.planning_package_price) {
+        realPrice = pricingConfig.planning_package_price;
+        console.log('[Payments] ✅ Preço do banco:', realPrice);
+      } else {
+        console.warn('[Payments] ⚠️ Config não encontrada, usando fallback:', realPrice);
+      }
+    } catch (priceError) {
+      console.error('[Payments] ❌ Erro ao buscar preço, usando fallback:', priceError);
+    }
+
+    console.log('[Payments] 💰 Preço final a ser cobrado:', realPrice);
+    console.log('[Payments] ℹ️ Valor enviado pelo frontend (IGNORADO):', amount);
 
     // Generate purchase ID
     const purchaseId = `purchase_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -1022,7 +1099,7 @@ app.post('/make-server-5f5857fb/payments/create-checkout', async (c) => {
       id: purchaseId,
       user_id: user.id,
       trip_id: tripId,
-      amount,
+      amount: realPrice, // ✅ Usar preço do banco
       currency: 'BRL',
       status: 'pending',
       payment_method: 'mercadopago',
@@ -1046,7 +1123,7 @@ app.post('/make-server-5f5857fb/payments/create-checkout', async (c) => {
         title: title || `Planejamento de Viagem - ${tripId.substring(0, 8)}`,
         description: description || 'Planejamento personalizado com roteiro detalhado',
         quantity: 1,
-        unit_price: amount,
+        unit_price: realPrice, // ✅ Usar preço do banco
         currency_id: 'BRL',
       }],
       back_urls: {
@@ -4555,5 +4632,27 @@ app.post('/make-server-5f5857fb/api/exchange/calculate-cash', async (c) => {
 });
 
 console.log('[Exchange] ✅ Routes registered');
+
+// ============================================
+// IMPORTANTE: INSTRUÇÃO DE MIGRAÇÃO
+// ============================================
+console.log('');
+console.log('='.repeat(60));
+console.log('⚠️  ATENÇÃO: MIGRAÇÃO NECESSÁRIA');
+console.log('='.repeat(60));
+console.log('Para o sistema funcionar corretamente, execute este SQL no Supabase:');
+console.log('');
+console.log('ALTER TABLE profiles ADD COLUMN IF NOT EXISTS home_city TEXT;');
+console.log('');
+console.log('Onde executar:');
+console.log('1. Acesse o Supabase Dashboard');
+console.log('2. Vá em "SQL Editor"');
+console.log('3. Cole o comando acima');
+console.log('4. Clique em "Run"');
+console.log('='.repeat(60));
+console.log('');
+
+// Mount Travelpayouts routes
+app.route('/make-server-5f5857fb/travelpayouts', travelpayoutsRoutes);
 
 Deno.serve(app.fetch);

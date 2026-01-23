@@ -19,6 +19,7 @@ import { Logo } from '@/app/components/Logo';
 import { BottomNavigation } from '@/app/components/BottomNavigation';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import type { Trip, TaskAttachment } from '@/types/trip';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 // Função auxiliar para formatar data no padrão brasileiro
 const formatDate = (dateStr: string) => {
@@ -48,6 +49,39 @@ export function MinhasViagens() {
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [hasCheckedAutoOpen, setHasCheckedAutoOpen] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [planningPrice, setPlanningPrice] = useState<number | null>(null);
+
+  // Buscar preço do planejamento do banco de dados
+  useEffect(() => {
+    const fetchPlanningPrice = async () => {
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${publicAnonKey}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          // CORREÇÃO: Backend retorna planning_package_price, não planning_price
+          setPlanningPrice(data.planning_package_price || 49.90);
+          console.log('[MinhasViagens] ✅ Preço carregado:', data.planning_package_price);
+        } else {
+          console.warn('[MinhasViagens] ⚠️ Erro ao carregar preço, usando fallback');
+          setPlanningPrice(49.90);
+        }
+      } catch (error) {
+        console.error('[MinhasViagens] ❌ Erro ao buscar preço:', error);
+        setPlanningPrice(49.90); // Fallback
+      }
+    };
+
+    fetchPlanningPrice();
+  }, []); // Executar apenas uma vez ao montar
 
   // Auto-abrir modal de adicionar viagem se não houver viagens
   useEffect(() => {
@@ -278,7 +312,7 @@ export function MinhasViagens() {
                       <span>Comprar Planejamento Personalizado</span>
                     </button>
                     <p className="text-xs text-center text-gray-500 mt-1">
-                      R$ 299,90 • Entrega em até 48h úteis
+                      R$ {planningPrice?.toFixed(2).replace('.', ',')} • Entrega em até 48h úteis
                     </p>
                   </div>
                 )}

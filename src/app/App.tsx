@@ -1,5 +1,11 @@
-import { TestHelper } from "./components/TestHelper";
-import { AcceptSharedTripModal } from "./components/AcceptSharedTripModal";
+import { ExchangeSystem } from "./components/screens/ExchangeSystem";
+import { Guide } from "./components/screens/Guide";
+import { Signup } from "./components/screens/Signup";
+import { Admin } from "./components/screens/Admin";
+import { ForgotPassword } from "./components/screens/ForgotPassword";
+import { ResetPassword } from "./components/screens/ResetPassword";
+import { SplashScreen } from "./components/SplashScreen";
+import { PaymentCallback } from "./components/screens/PaymentCallback";
 import { useState, useEffect } from "react";
 import { Home } from "./components/screens/Home";
 import { TravelPackages } from "./components/screens/TravelPackages";
@@ -7,14 +13,6 @@ import { MinhasViagens } from "./components/screens/MinhasViagens";
 import { Roteiro } from "./components/screens/Roteiro";
 import { Perfil } from "./components/screens/Perfil";
 import { Login } from "./components/screens/Login";
-import { ExchangeSystem } from "./components/screens/ExchangeSystem";
-import { Guide } from "./components/screens/Guide";
-import { Signup } from "./components/screens/Signup";
-import { ForgotPassword } from "./components/screens/ForgotPassword";
-import { ResetPassword } from "./components/screens/ResetPassword";
-import { SplashScreen } from "./components/SplashScreen";
-import { PaymentCallback } from "./components/screens/PaymentCallback";
-import { Admin } from "./components/screens/Admin";
 import { TestAuthButton } from "./components/TestAuthButton";
 import { WikiGuideDemo } from "./components/WikiGuideDemo";
 import { NavigationProvider, useNavigation } from "./context/NavigationContext";
@@ -22,6 +20,8 @@ import { TripsProvider } from "./context/TripsContext";
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
 import { useSharedTrip } from "./hooks/useSharedTrip";
+import { AcceptSharedTripModal } from "./components/AcceptSharedTripModal";
+import { TestHelper } from "./components/TestHelper";
 
 // Mostrar TestHelper apenas em desenvolvimento
 const isDev = import.meta.env.DEV;
@@ -88,38 +88,40 @@ function AppContent() {
 
   return (
     <>
-      {(() => {
-        switch (currentScreen) {
-          case "packages":
-            return <TravelPackages />;
-          case "trips":
-            return <MinhasViagens />;
-          case "itinerary":
-            return <Roteiro />;
-          case "profile":
-            return <Perfil />;
-          case "login":
-            return <Login />;
-          case "signup":
-            return <Signup />;
-          case "forgot-password":
-            return <ForgotPassword />;
-          case "reset-password":
-            return <ResetPassword />;
-          case "admin":
-            return <Admin />;
-          case "exchange":
-            return <ExchangeSystem />;
-          case "guide":
-            return <Guide />;
-          default:
-            // Detectar hash #wiki-guide para mostrar demo da Feature 4
-            if (window.location.hash === '#wiki-guide') {
-              return <WikiGuideDemo />;
-            }
-            return <Home />;
-        }
-      })()}
+      <div className="w-full max-w-[80%] mx-auto lg:max-w-[80vw]">
+        {(() => {
+          switch (currentScreen) {
+            case "packages":
+              return <TravelPackages />;
+            case "trips":
+              return <MinhasViagens />;
+            case "itinerary":
+              return <Roteiro />;
+            case "profile":
+              return <Perfil />;
+            case "login":
+              return <Login />;
+            case "signup":
+              return <Signup />;
+            case "forgot-password":
+              return <ForgotPassword />;
+            case "reset-password":
+              return <ResetPassword />;
+            case "admin":
+              return <Admin />;
+            case "exchange":
+              return <ExchangeSystem />;
+            case "guide":
+              return <Guide />;
+            default:
+              // Detectar hash #wiki-guide para mostrar demo da Feature 4
+              if (window.location.hash === '#wiki-guide') {
+                return <WikiGuideDemo />;
+              }
+              return <Home />;
+          }
+        })()}
+      </div>
       {isDev && !isPaymentCallback && <TestHelper />}
       {/* Modal de aceitar viagem compartilhada */}
       {showSharedModal && sharedTripData.trip && (

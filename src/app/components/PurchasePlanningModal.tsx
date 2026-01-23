@@ -27,15 +27,21 @@ export function PurchasePlanningModal({ isOpen, onClose, trip }: PurchasePlannin
   // Buscar preço do planejamento ao abrir modal
   useEffect(() => {
     if (isOpen) {
-      fetch(`https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`, {
-        headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+      fetch(`https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config?_t=${Date.now()}`, {
+        headers: { 
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store'
       })
         .then(res => res.json())
         .then(data => {
-          setPlanningPrice(data.planning_package_price || 299.90);
+          console.log('[PurchasePlanningModal] Preço recebido da API:', data.planning_package_price);
+          setPlanningPrice(data.planning_package_price || 49.90);
         })
-        .catch(() => {
-          setPlanningPrice(299.90); // Fallback
+        .catch((err) => {
+          console.error('[PurchasePlanningModal] Erro ao buscar preço:', err);
+          setPlanningPrice(49.90);
         });
     }
   }, [isOpen]);
@@ -96,7 +102,7 @@ export function PurchasePlanningModal({ isOpen, onClose, trip }: PurchasePlannin
       const { checkoutUrl } = await createCheckout(
         {
           tripId: trip.id,
-          amount: planningPrice || 299.90,
+          amount: planningPrice || 49.90,
           title: `Planejamento - ${trip.destination}`,
           description: `Planejamento completo para sua viagem a ${trip.destination}`,
         },
@@ -290,7 +296,7 @@ export function PurchasePlanningModal({ isOpen, onClose, trip }: PurchasePlannin
               </span>
               <div className="text-right">
                 <p className="text-2xl font-bold text-sky-600">
-                  R$ {planningPrice?.toFixed(2) || '299,90'}
+                  R$ {planningPrice?.toFixed(2) || '49,90'}
                 </p>
                 <p className="text-xs text-gray-500">
                   pagamento único

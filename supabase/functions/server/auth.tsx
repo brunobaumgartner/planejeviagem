@@ -83,11 +83,19 @@ export class AuthService {
       const { data: { user }, error } = await this.supabase.auth.getUser(token);
       
       if (error) {
+        // Erro de "missing sub claim" geralmente significa que não é um JWT de usuário
+        // mas sim uma chave pública (publicAnonKey). Isso é normal para rotas públicas.
+        if (error.message.includes('missing sub claim')) {
+          console.log('[AuthService] ℹ️ Token não é um JWT de usuário (provavelmente publicAnonKey)');
+          return null;
+        }
+        
         // Erro de sessão é comum quando servidor está reiniciando
         if (error.message.includes('session missing')) {
           console.warn('[AuthService] ⚠️ Sessão não encontrada (servidor pode estar reiniciando)');
           return null;
         }
+        
         console.error('[AuthService] ❌ Token inválido:', error.message);
         return null;
       }

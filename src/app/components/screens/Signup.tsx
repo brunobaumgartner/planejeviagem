@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Lock, User as UserIcon, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowLeft, AlertCircle, CheckCircle, MapPin } from 'lucide-react';
 import { Logo } from '../Logo';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigation } from '@/app/context/NavigationContext';
@@ -11,6 +11,7 @@ export function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [homeCity, setHomeCity] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -31,7 +32,7 @@ export function Signup() {
 
     setIsLoading(true);
 
-    const { error: signUpError } = await signUp(email, password, name);
+    const { error: signUpError } = await signUp(email, password, name, homeCity);
 
     if (signUpError) {
       setError(signUpError);
@@ -164,6 +165,28 @@ export function Signup() {
                 minLength={6}
               />
             </div>
+          </div>
+
+          {/* Home City (Optional) */}
+          <div>
+            <label htmlFor="homeCity" className="block text-sm font-medium text-gray-700 mb-1">
+              Cidade de Origem <span className="text-gray-500 text-xs">(opcional)</span>
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                id="homeCity"
+                type="text"
+                value={homeCity}
+                onChange={(e) => setHomeCity(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                placeholder="Ex: São Paulo, Rio de Janeiro"
+                disabled={isLoading}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Para ver sugestões de voos personalizadas
+            </p>
           </div>
 
           {/* Benefits */}

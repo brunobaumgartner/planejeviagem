@@ -9,8 +9,10 @@ import {
   Crown,
   Sparkles,
   Shield,
+  ArrowLeft,
 } from 'lucide-react';
 import { Logo } from '../Logo';
+import { TopNavigation } from '../TopNavigation';
 import { BottomNavigation } from '../BottomNavigation';
 import { UserBadge } from '../UserBadge';
 import { useTrips } from '@/app/context/TripsContext';
@@ -95,10 +97,22 @@ export function Perfil() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
-        <div className="flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+      {/* Top Navigation - Desktop only */}
+      <TopNavigation activeTab="profile" />
+      
+      {/* Header - Mobile only */}
+      <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setCurrentScreen('home')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
+          </button>
           <Logo size={32} variant="full" className="text-sky-500" />
+          <div className="w-10" /> {/* Spacer para centralizar o logo */}
         </div>
       </header>
 

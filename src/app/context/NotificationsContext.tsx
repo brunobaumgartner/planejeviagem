@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId } from '/utils/supabase/info';
 import type { Notification } from '@/types';
 
 interface NotificationsContextType {
@@ -58,8 +58,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/notifications`,
         {
           headers: {
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
           },
         }
       );

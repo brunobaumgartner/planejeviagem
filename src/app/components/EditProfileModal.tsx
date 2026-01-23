@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, User, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { X, User, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff, MapPin } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
 interface EditProfileModalProps {
@@ -7,10 +7,10 @@ interface EditProfileModalProps {
   onClose: () => void;
 }
 
-type Tab = 'name' | 'email' | 'password';
+type Tab = 'name' | 'email' | 'password' | 'location';
 
 export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
-  const { user, updateProfile, updateEmail, updatePassword } = useAuth();
+  const { user, updateProfile, updateEmail, updatePassword, updateHomeCity } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('name');
   
   // Name state
@@ -34,6 +34,12 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   const [passwordError, setPasswordError] = useState('');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Location state
+  const [homeCity, setHomeCity] = useState(user?.homeCity || '');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationSuccess, setLocationSuccess] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   if (!isOpen) return null;
 
@@ -133,10 +139,37 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
     setPasswordLoading(false);
   };
 
+  const handleUpdateLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!homeCity.trim()) {
+      setLocationError('Cidade não pode estar vazia');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError('');
+    setLocationSuccess(false);
+
+    const { error } = await updateHomeCity(homeCity.trim());
+
+    if (error) {
+      setLocationError(error);
+    } else {
+      setLocationSuccess(true);
+      setTimeout(() => {
+        setLocationSuccess(false);
+      }, 3000);
+    }
+
+    setLocationLoading(false);
+  };
+
   const tabs = [
     { id: 'name' as Tab, label: 'Nome', icon: User },
     { id: 'email' as Tab, label: 'Email', icon: Mail },
     { id: 'password' as Tab, label: 'Senha', icon: Lock },
+    { id: 'location' as Tab, label: 'Localização', icon: MapPin },
   ];
 
   return (
@@ -365,6 +398,55 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
                 className="w-full bg-sky-500 text-white py-3 rounded-lg font-medium hover:bg-sky-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {passwordLoading ? 'Salvando...' : 'Alterar Senha'}
+              </button>
+            </form>
+          )}
+
+          {/* Update Location */}
+          {activeTab === 'location' && (
+            <form onSubmit={handleUpdateLocation} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cidade de Origem
+                </label>
+                <input
+                  type="text"
+                  value={homeCity}
+                  onChange={(e) => setHomeCity(e.target.value)}
+                  placeholder="Ex: São Paulo, Rio de Janeiro"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Usamos essa informação para mostrar sugestões de voos personalizadas
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  💡 Configure sua cidade para ver ofertas de voos saindo de onde você está!
+                </p>
+              </div>
+
+              {locationError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <p>{locationError}</p>
+                </div>
+              )}
+
+              {locationSuccess && (
+                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                  <p>Cidade atualizada com sucesso!</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={locationLoading}
+                className="w-full bg-sky-500 text-white py-3 rounded-lg font-medium hover:bg-sky-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {locationLoading ? 'Salvando...' : 'Salvar Cidade'}
               </button>
             </form>
           )}

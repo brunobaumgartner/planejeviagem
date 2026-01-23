@@ -17,6 +17,7 @@ import { AddTaskModal } from '@/app/components/AddTaskModal';
 import { TaskAttachments } from '@/app/components/TaskAttachments';
 import { Logo } from '@/app/components/Logo';
 import { BottomNavigation } from '@/app/components/BottomNavigation';
+import { TopNavigation } from '@/app/components/TopNavigation';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import type { Trip, TaskAttachment } from '@/types/trip';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -55,6 +56,7 @@ export function MinhasViagens() {
   useEffect(() => {
     const fetchPlanningPrice = async () => {
       try {
+        // Adicionar timestamp para evitar cache
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/pricing-config`,
           {
@@ -67,8 +69,9 @@ export function MinhasViagens() {
 
         if (response.ok) {
           const data = await response.json();
-          setPlanningPrice(data.planning_price || 49.90);
-          console.log('[MinhasViagens] ✅ Preço carregado:', data.planning_price);
+          // CORREÇÃO: Backend retorna planning_package_price, não planning_price
+          setPlanningPrice(data.planning_package_price || 49.90);
+          console.log('[MinhasViagens] ✅ Preço carregado:', data.planning_package_price);
         } else {
           console.warn('[MinhasViagens] ⚠️ Erro ao carregar preço, usando fallback');
           setPlanningPrice(49.90);
@@ -80,7 +83,7 @@ export function MinhasViagens() {
     };
 
     fetchPlanningPrice();
-  }, []);
+  }, []); // Executar apenas uma vez ao montar
 
   // Auto-abrir modal de adicionar viagem se não houver viagens
   useEffect(() => {
@@ -139,8 +142,12 @@ export function MinhasViagens() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 z-10">
+    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+      {/* Top Navigation - Desktop only */}
+      <TopNavigation activeTab="trips" />
+      
+      {/* Header - Mobile only */}
+      <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 z-10">
         <div className="flex items-center justify-between">
           <div className="w-8 sm:w-10">
             <button className="p-2" onClick={() => setCurrentScreen('home')}>

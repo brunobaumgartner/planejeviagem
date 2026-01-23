@@ -5,6 +5,7 @@ import { AttractionsMap } from '@/app/components/AttractionsMap';
 import { geocodeLocation } from '@/services/internationalService';
 import { CurrencyWidget } from '@/app/components/CurrencyWidget';
 import { CashCalculator } from '@/app/components/CashCalculator';
+import * as geolocation from '@/services/geolocation';
 
 interface ItineraryEditorProps {
   isOpen: boolean;

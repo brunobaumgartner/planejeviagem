@@ -10,7 +10,7 @@ interface AuthContextType {
   isLogged: boolean;
   isPremium: boolean;
   isLoading: boolean;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, name: string, homeCity?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -19,6 +19,7 @@ interface AuthContextType {
   updateProfile: (name: string) => Promise<{ error: string | null }>;
   updateEmail: (newEmail: string) => Promise<{ error: string | null }>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>;
+  updateHomeCity: (homeCity: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -100,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: profile.name,
             role: profile.role as UserRole,
             createdAt: profile.created_at,
+            homeCity: profile.home_city,
           });
         }
       } else {
@@ -112,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, homeCity?: string) => {
     try {
       console.log('[AuthContext] Iniciando cadastro para:', email);
       // Call server endpoint to create user
@@ -124,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
-          body: JSON.stringify({ email, password, name }),
+          body: JSON.stringify({ email, password, name, homeCity }),
         }
       );
 
@@ -221,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: profile.name,
             role: profile.role as UserRole,
             createdAt: profile.created_at,
+            homeCity: profile.home_city,
           });
         } else {
           console.error('[AuthContext] Perfil não pôde ser criado');
@@ -426,6 +429,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateHomeCity = async (homeCity: string) => {
+    if (!user) {
+      return { error: 'Você precisa estar logado' };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ home_city: homeCity })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[AuthContext] Erro ao atualizar cidade de origem:', error);
+        return { error: 'Erro ao atualizar cidade de origem. Tente novamente.' };
+      }
+
+      // Update local user
+      setUser({ ...user, homeCity: data.home_city });
+
+      return { error: null };
+    } catch (error) {
+      console.error('Update home city error:', error);
+      return { error: 'Erro ao atualizar cidade de origem. Tente novamente.' };
+    }
+  };
+
   const isGuest = !user;
   const isLogged = !!user && user.role === 'logged';
   const isPremium = !!user && user.role === 'premium';
@@ -447,6 +478,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         updateEmail,
         updatePassword,
+        updateHomeCity,
       }}
     >
       {children}

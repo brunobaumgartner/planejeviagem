@@ -9,6 +9,7 @@ export interface User {
   createdAt: string;
   premiumUntil?: string; // Data de expiração do premium (ISO string)
   premiumPlan?: 'monthly' | 'annual'; // Tipo de plano premium
+  homeCity?: string; // Cidade de origem do usuário
 }
 
 // Wikipedia/Cultural Guide Types

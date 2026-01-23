@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { Sparkles, MapPin, Calendar, DollarSign, Loader2 } from "lucide-react";
+import { Sparkles, MapPin, Calendar, DollarSign, Loader2, Navigation } from "lucide-react";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { useAuth } from '@/app/context/AuthContext';
+import * as geolocation from '@/services/geolocation';
 
 interface SuggestionData {
   destination: string;
@@ -15,25 +17,69 @@ interface TripSuggestionsProps {
 }
 
 export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
+  const { user } = useAuth();
   const [suggestions, setSuggestions] = useState<SuggestionData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [originCity, setOriginCity] = useState<string | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
 
-  // Buscar sugestões do servidor na montagem do componente
+  // Buscar cidade de origem ao montar
   useEffect(() => {
-    fetchSuggestions();
-  }, []);
+    loadOriginCity();
+  }, [user]);
+
+  // Buscar sugestões quando tiver cidade de origem
+  useEffect(() => {
+    if (originCity) {
+      fetchSuggestions();
+    }
+  }, [originCity]);
+
+  const loadOriginCity = async () => {
+    // Primeiro tentar carregar do localStorage
+    const savedCity = geolocation.getSavedOriginCity();
+    if (savedCity) {
+      console.log('[TripSuggestions] Cidade salva encontrada:', savedCity);
+      setOriginCity(savedCity);
+      return;
+    }
+
+    // Se não tiver, tentar geolocalização automática
+    await requestLocation();
+  };
+
+  const requestLocation = async () => {
+    setIsLoadingLocation(true);
+    setLocationDenied(false);
+
+    const cityInfo = await geolocation.getUserCity();
+    
+    if (cityInfo) {
+      console.log('[TripSuggestions] Localização obtida:', cityInfo.fullName);
+      setOriginCity(cityInfo.fullName);
+      geolocation.saveOriginCity(cityInfo.fullName);
+    } else {
+      console.log('[TripSuggestions] Localização não obtida');
+      setLocationDenied(true);
+      // Usar São Paulo como fallback
+      setOriginCity('São Paulo');
+    }
+
+    setIsLoadingLocation(false);
+  };
 
   const fetchSuggestions = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('[TripSuggestions] Iniciando busca de destinos...');
+      console.log('[TripSuggestions] Buscando destinos com origem:', originCity);
       
-      // Timeout de 10 segundos (reduzido)
+      // Timeout de 10 segundos
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
@@ -50,35 +96,22 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
       
       clearTimeout(timeoutId);
 
-      console.log('[TripSuggestions] Response status:', response.status);
-
       if (!response.ok) {
         throw new Error(`Servidor temporariamente indisponível (${response.status})`);
       }
 
       const data = await response.json();
-      console.log('[TripSuggestions] Dados recebidos:', data);
       
       if (data.destinations && data.destinations.length > 0) {
         setSuggestions(data.destinations);
-        console.log(`[TripSuggestions] ✅ ${data.destinations.length} destinos carregados da API`);
+        console.log(`[TripSuggestions] ✅ ${data.destinations.length} destinos carregados`);
       } else {
         throw new Error('Nenhum destino disponível');
       }
     } catch (err) {
-      // Verificar se é timeout ou erro de rede
-      const isTimeout = err instanceof Error && err.name === 'AbortError';
-      const isNetworkError = err instanceof Error && err.message.includes('Failed to fetch');
+      console.warn('[TripSuggestions] ⚠️ Erro ao buscar:', err);
       
-      if (isTimeout) {
-        console.warn('[TripSuggestions] ⏱️ Timeout (10s) - usando sugestões locais');
-      } else if (isNetworkError) {
-        console.warn('[TripSuggestions] 🔌 Servidor indisponível - usando sugestões locais');
-      } else {
-        console.warn('[TripSuggestions] ⚠️ Erro ao buscar API:', err);
-      }
-      
-      // Fallback: sugestões locais sempre funcionam
+      // Fallback com sugestões locais
       setSuggestions([
         {
           destination: "Rio de Janeiro, Brasil",
@@ -115,12 +148,42 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
   };
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || isLoadingLocation) {
     return (
       <div className="bg-gradient-to-br from-sky-50 via-blue-50 to-purple-50 rounded-2xl p-4 sm:p-6 shadow-sm border border-sky-100">
         <div className="flex items-center justify-center gap-3 py-6 sm:py-8">
           <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-500 animate-spin" />
-          <p className="text-sm sm:text-base text-gray-600">Carregando destinos...</p>
+          <p className="text-sm sm:text-base text-gray-600">
+            {isLoadingLocation ? 'Detectando sua localização...' : 'Carregando destinos...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Location denied state
+  if (locationDenied && !originCity) {
+    return (
+      <div className="bg-amber-50 rounded-2xl p-4 sm:p-6 shadow-sm border border-amber-200">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <Navigation className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-amber-900 text-sm sm:text-base">
+                Permita o acesso à localização
+              </h3>
+              <p className="text-xs sm:text-sm text-amber-700 mt-1">
+                Para calcular preços aproximados baseados na sua origem, precisamos saber de onde você está partindo.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={requestLocation}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Navigation className="w-4 h-4" />
+            Permitir localização
+          </button>
         </div>
       </div>
     );
@@ -171,6 +234,14 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
           {isAnimating ? "" : <span className="sm:hidden">✨ Outra</span>}
         </button>
       </div>
+
+      {/* Origin City Display */}
+      {originCity && (
+        <div className="mb-3 flex items-center gap-2 text-xs text-gray-600 bg-white/50 rounded-lg px-3 py-2">
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Partindo de: <strong>{originCity}</strong></span>
+        </div>
+      )}
 
       {/* Suggestion Card */}
       <div 
@@ -238,7 +309,7 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
       {/* Nota sobre orçamento */}
       <div className="mt-3 pt-3 border-t border-sky-200">
         <p className="text-xs text-gray-500 text-center">
-          💡 Valores calculados automaticamente via API. Use o calculador de orçamento para valores personalizados.
+          💡 Valores de orçamento são aproximados e podem variar.
         </p>
       </div>
     </div>

@@ -317,8 +317,8 @@ export function calculateTransportCost(params: TransportCalculationParams): Tran
   
   // Se alguma cidade não for encontrada, usar estimativa genérica
   if (!originCoords || !destCoords) {
-    console.warn(`⚠️ Cidade não encontrada no sistema de coordenadas: ${!originCoords ? origin : destination}`);
-    console.warn('📍 Usando cálculo estimado baseado em distância padrão...');
+    // Log silencioso apenas para debug se necessário
+    // console.log(`ℹ️ Coordenadas não encontradas, usando estimativa padrão`);
     
     // Usar distância média para viagens nacionais/internacionais
     const estimatedDistance = 2000; // km (distância média)

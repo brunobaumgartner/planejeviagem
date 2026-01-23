@@ -57,9 +57,12 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
       setProcessing(true);
       setError(null);
 
-      const accessToken = await getAccessToken();
+      console.log('[UpgradePremiumModal] Iniciando upgrade...', { userId: user.id, plan: selectedPlan });
+      
+      // Usar apenas publicAnonKey para evitar validação JWT automática do Supabase
+      // Adicionar timestamp para evitar cache
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/premium/create-payment`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/premium/create-payment?_t=${Date.now()}`,
         {
           method: 'POST',
           headers: {
@@ -74,9 +77,13 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
       );
 
       const data = await response.json();
+      console.log('[UpgradePremiumModal] Resposta recebida:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao processar upgrade');
+        const errorMsg = data.error || 'Erro ao processar upgrade';
+        const details = data.details ? `\n\nDetalhes: ${data.details}` : '';
+        const hint = data.hint ? `\n\n💡 ${data.hint}` : '';
+        throw new Error(errorMsg + details + hint);
       }
 
       if (data.test_mode) {
@@ -85,7 +92,7 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
         onClose();
         window.location.reload(); // Recarregar para atualizar o estado
       } else {
-        // Modo produção: redirecionar para Mercado Pago
+        // Modo produção: redirecionar para Mercado Pago em nova aba
         if (data.init_point) {
           console.log('[UpgradePremiumModal] 🔗 Abrindo checkout em nova aba:', data.init_point);
           const newWindow = window.open(data.init_point, '_blank');
@@ -153,9 +160,19 @@ export function UpgradePremiumModal({ isOpen, onClose }: UpgradePremiumModalProp
           </div>
         ) : error ? (
           <div className="p-6">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
-              {error}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <h3 className="font-bold text-red-900 mb-2">⚠️ Erro ao processar</h3>
+              <p className="text-red-800 whitespace-pre-line">{error}</p>
             </div>
+            <button
+              onClick={() => {
+                setError(null);
+                loadPricingConfig();
+              }}
+              className="w-full bg-sky-500 text-white py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors"
+            >
+              Tentar Novamente
+            </button>
           </div>
         ) : config ? (
           <div className="p-6">
