@@ -111,7 +111,7 @@ export function UsersList() {
 
   const handleResetPassword = async (userEmail: string, userName: string) => {
     const confirmed = confirm(
-      `Deseja realmente enviar um link de redefinição de senha para ${userName} (${userEmail})?`
+      `Deseja realmente enviar um código de redefinição de senha para ${userName} (${userEmail})?`
     );
 
     if (!confirmed) return;
@@ -133,13 +133,29 @@ export function UsersList() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao enviar link de redefinição');
+        
+        // Tratamento específico para rate limit (429)
+        if (response.status === 429) {
+          throw new Error('⏱️ Limite de envio de emails atingido. Por favor, aguarde alguns minutos antes de tentar novamente.');
+        }
+        
+        throw new Error(errorData.error || 'Erro ao enviar código de redefinição');
       }
 
-      alert(`✅ Link de redefinição de senha enviado para ${userEmail}`);
-      console.log('[Admin] Link de reset enviado com sucesso');
+      const data = await response.json();
+      
+      // Em desenvolvimento, mostrar o código no console e no alert
+      if (data.devCode) {
+        console.log('[Admin] 🔑 CÓDIGO DE DESENVOLVIMENTO:', data.devCode);
+        console.log('[Admin] 📧 Email:', userEmail);
+        alert(`✅ Código enviado para ${userEmail}\n\n🔑 CÓDIGO (apenas em desenvolvimento): ${data.devCode}\n\nO usuário deve acessar a tela de recuperação de senha e inserir este código junto com o email.`);
+      } else {
+        alert(`✅ Código de redefinição de senha enviado para ${userEmail}`);
+      }
+      
+      console.log('[Admin] Código de reset enviado com sucesso');
     } catch (err: any) {
-      console.error('[Admin] Erro ao enviar link de reset:', err);
+      console.error('[Admin] Erro ao enviar código de reset:', err);
       alert(`❌ Erro: ${err.message}`);
     }
   };

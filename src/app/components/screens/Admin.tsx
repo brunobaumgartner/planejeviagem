@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Activity, Package, CreditCard, Users, DollarSign, Database, Stethoscope, Settings, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigation } from '@/app/context/NavigationContext';
-import { Users, Package, CreditCard, DollarSign, ArrowLeft, Activity, Database, AlertTriangle, Settings } from 'lucide-react';
+import { ServiceStatus } from '@/app/components/admin/ServiceStatus';
 import { UsersList } from '@/app/components/admin/UsersList';
 import { TripsList } from '@/app/components/admin/TripsList';
 import { PurchasesList } from '@/app/components/admin/PurchasesList';
 import { BudgetEditor } from '@/app/components/admin/BudgetEditor';
-import { ServiceStatus } from '@/app/components/admin/ServiceStatus';
 import { DataUpdater } from '@/app/components/DataUpdater';
 import { DiagnosticPanel } from '@/app/components/admin/DiagnosticPanel';
 import { PricingConfig } from '@/app/components/admin/PricingConfig';
+import { DestinationsCache } from '@/app/components/admin/DestinationsCache';
 
 // Lista de admins autorizados (por email)
 const ADMIN_EMAILS = [
@@ -59,7 +60,7 @@ export function Admin() {
     { id: 'users' as AdminTab, label: 'Usuários', icon: Users },
     { id: 'budgets' as AdminTab, label: 'Orçamentos', icon: DollarSign },
     { id: 'data' as AdminTab, label: 'Dados', icon: Database },
-    { id: 'diagnostic' as AdminTab, label: 'Diagnóstico', icon: AlertTriangle },
+    { id: 'diagnostic' as AdminTab, label: 'Diagnóstico', icon: Stethoscope },
     { id: 'pricing' as AdminTab, label: 'Preços', icon: Settings },
   ];
 
@@ -127,7 +128,12 @@ export function Admin() {
         {currentTab === 'trips' && <TripsList />}
         {currentTab === 'purchases' && <PurchasesList />}
         {currentTab === 'budgets' && <BudgetEditor />}
-        {currentTab === 'data' && <DataUpdater />}
+        {currentTab === 'data' && (
+          <div className="space-y-6">
+            <DestinationsCache />
+            <DataUpdater />
+          </div>
+        )}
         {currentTab === 'diagnostic' && <DiagnosticPanel />}
         {currentTab === 'pricing' && <PricingConfig />}
       </div>

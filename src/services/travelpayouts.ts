@@ -22,19 +22,6 @@ export const POPULAR_DESTINATIONS = [
   { name: 'Berlim', code: 'BER', country: 'Alemanha', emoji: '🇩🇪', hotelCity: 'Berlin' },
 ];
 
-// Cidades brasileiras com códigos IATA
-export const BRAZILIAN_CITIES = [
-  { name: 'São Paulo', code: 'SAO' },
-  { name: 'Rio de Janeiro', code: 'RIO' },
-  { name: 'Brasília', code: 'BSB' },
-  { name: 'Salvador', code: 'SSA' },
-  { name: 'Fortaleza', code: 'FOR' },
-  { name: 'Belo Horizonte', code: 'BHZ' },
-  { name: 'Manaus', code: 'MAO' },
-  { name: 'Curitiba', code: 'CWB' },
-  { name: 'Recife', code: 'REC' },
-  { name: 'Porto Alegre', code: 'POA' },
-];
 
 interface FlightLinkParams {
   origin: string; // Código IATA da origem (ex: 'SAO')
@@ -117,19 +104,6 @@ function formatDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-/**
- * Encontra código IATA de uma cidade brasileira
- */
-export function findBrazilianCityCode(cityName: string): string | null {
-  const normalized = cityName.toLowerCase().trim();
-  
-  const city = BRAZILIAN_CITIES.find(
-    (c) => c.name.toLowerCase().includes(normalized) || normalized.includes(c.name.toLowerCase())
-  );
-
-  return city?.code || null;
 }
 
 /**
@@ -324,36 +298,6 @@ export function generateTourSuggestions(
   }));
 }
 
-/**
- * Converte nome de cidade para código IATA (simples, pode ser expandido)
- */
-export function getCityCode(cityName: string): string {
-  // Primeiro tenta encontrar em cidades brasileiras
-  const brazilianCode = findBrazilianCityCode(cityName);
-  if (brazilianCode) return brazilianCode;
-
-  // Se não encontrar, retorna código padrão (São Paulo)
-  return 'SAO';
-}
-
-// Preços médios estimados para cada destino (apenas para display visual)
-export const ESTIMATED_PRICES: Record<string, number> = {
-  LON: 3500,
-  PAR: 3200,
-  NYC: 4000,
-  TYO: 5500,
-  BCN: 3000,
-  DXB: 4500,
-  ROM: 2800,
-  AMS: 3300,
-  BKK: 4200,
-  CUN: 3800,
-  LIS: 2500,
-  BUE: 2000,
-  MIA: 3600,
-  SYD: 6000,
-  BER: 3100,
-};
 
 // Preços médios de hotéis por noite
 export const ESTIMATED_HOTEL_PRICES: Record<string, number> = {

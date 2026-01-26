@@ -48,8 +48,10 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
       return;
     }
 
-    // Se não tiver, tentar geolocalização automática
-    await requestLocation();
+    // Se não tiver cidade salva, usar São Paulo como padrão
+    // NÃO solicitar geolocalização automaticamente para evitar erros de permissão
+    console.log('[TripSuggestions] Nenhuma cidade salva - usando São Paulo como padrão');
+    setOriginCity('São Paulo');
   };
 
   const requestLocation = async () => {
@@ -79,9 +81,9 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
       
       console.log('[TripSuggestions] Buscando destinos com origem:', originCity);
       
-      // Timeout de 10 segundos
+      // Timeout de 30 segundos (endpoint pode demorar devido a múltiplas consultas)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/popular-destinations`,
@@ -109,23 +111,42 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
         throw new Error('Nenhum destino disponível');
       }
     } catch (err) {
-      console.warn('[TripSuggestions] ⚠️ Erro ao buscar:', err);
+      // Não logar AbortError como erro - é esperado em caso de timeout
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('[TripSuggestions] ⏱️ Timeout ao buscar destinos - usando fallback');
+      } else {
+        console.warn('[TripSuggestions] ⚠️ Erro ao buscar:', err);
+      }
       
-      // Fallback com sugestões locais
+      // Fallback com sugestões locais (não mostra erro ao usuário)
       setSuggestions([
         {
           destination: "Rio de Janeiro, Brasil",
           duration: "5 dias",
-          budget: "Consultar",
+          budget: "R$ 1.000 - R$ 2.500",
           highlights: ["Cristo Redentor", "Praias", "Pão de Açúcar"],
           emoji: "🏖️"
         },
         {
           destination: "São Paulo, Brasil",
           duration: "4 dias",
-          budget: "Consultar",
+          budget: "R$ 1.200 - R$ 2.800",
           highlights: ["MASP", "Avenida Paulista", "Gastronomia"],
           emoji: "🏙️"
+        },
+        {
+          destination: "Salvador, Brasil",
+          duration: "5 dias",
+          budget: "R$ 900 - R$ 2.200",
+          highlights: ["Pelourinho", "Praias tropicais", "Cultura"],
+          emoji: "🎭"
+        },
+        {
+          destination: "Florianópolis, Brasil",
+          duration: "5 dias",
+          budget: "R$ 1.100 - R$ 2.600",
+          highlights: ["42 praias", "Lagoa da Conceição", "Frutos do mar"],
+          emoji: "🌊"
         }
       ]);
     } finally {
@@ -197,7 +218,7 @@ export function TripSuggestions({ onSelectSuggestion }: TripSuggestionsProps) {
           <div className="flex items-start gap-3">
             <Sparkles className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-amber-900 text-sm sm:text-base">Sugestões indisponíveis</h3>
+              <h3 className="font-semibold text-amber-900 text-sm sm:text-base">Sugest��es indisponíveis</h3>
               <p className="text-xs sm:text-sm text-amber-700 break-words">{error || 'Tente novamente mais tarde'}</p>
             </div>
           </div>

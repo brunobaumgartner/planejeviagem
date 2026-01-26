@@ -57,6 +57,17 @@ export function Home() {
 
       {/* Main Content */}
       <main className="px-3 sm:px-4 pt-4 sm:pt-6">
+        {/* Hero Section - MOVIDO PARA CIMA */}
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl mb-2 px-2">
+            Viajar pode ser leve. Planejar também.
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600 px-4">
+            Organize sua viagem no seu tempo, do seu jeito e
+            dentro do seu orçamento.
+          </p>
+        </div>
+
         {/* Search Bar */}
         <div className="mb-6 sm:mb-8">
           <SearchBar placeholder="Para onde voc quer ir?" onCitySelect={handleCitySelect} />
@@ -101,15 +112,28 @@ export function Home() {
           </div>
         </div>
 
-        {/* Hero Section */}
-        <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl mb-2 px-2">
-            Viajar pode ser leve. Planejar também.
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-600 px-4">
-            Organize sua viagem no seu tempo, do seu jeito e
-            dentro do seu orçamento.
+        {/* Call to Action - MOVIDO PARA DEPOIS DO GUIA TURÍSTICO */}
+        <div className="text-center py-12 px-4 bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">
+            ✈️ Comece a planejar sua viagem
+          </h2>
+          <p className="text-gray-700 mb-6 max-w-md mx-auto">
+            Descubra destinos baseados no seu orçamento ou calcule quanto vai custar sua próxima aventura.
           </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => setCurrentScreen("trip-planner")}
+              className="bg-gradient-to-r from-sky-500 to-blue-600 text-white px-8 py-3 rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-colors inline-flex items-center justify-center gap-2 shadow-md"
+            >
+              🎯 Planejar por Orçamento
+            </button>
+            <button
+              onClick={() => setCurrentScreen("trips")}
+              className="bg-white text-sky-600 border-2 border-sky-500 px-8 py-3 rounded-xl font-medium hover:bg-sky-50 transition-colors inline-flex items-center justify-center gap-2"
+            >
+              📝 Criar Roteiro
+            </button>
+          </div>
         </div>
 
         {/* Trip Suggestions */}
@@ -166,24 +190,6 @@ export function Home() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Call to Action */}
-        <div className="text-center py-12 px-4 bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-3">
-            ✈️ Comece a planejar sua viagem
-          </h2>
-          <p className="text-gray-700 mb-6 max-w-md mx-auto">
-            Use nossa calculadora inteligente para descobrir quanto vai custar sua próxima aventura.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => setCurrentScreen("trips")}
-              className="bg-sky-500 text-white px-8 py-3 rounded-xl font-medium hover:bg-sky-600 transition-colors inline-flex items-center justify-center gap-2 shadow-md"
-            >
-              Calcular orçamento →
-            </button>
           </div>
         </div>
 

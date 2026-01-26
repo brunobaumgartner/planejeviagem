@@ -74,21 +74,19 @@ export function useGeolocation() {
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            // Não mostrar erro no console se for bloqueio por política
-            // (comum em iframes e ambientes embarcados)
+            // Silencioso - não logar se for bloqueio por política (comum em produção)
             errorMessage = 'Permissão de localização negada';
-            console.warn('[useGeolocation] Permissão negada ou bloqueada por política');
             break;
           case error.POSITION_UNAVAILABLE:
             errorMessage = 'Localização não disponível';
-            console.warn('[useGeolocation] Localização não disponível');
+            console.log('[useGeolocation] ℹ️ Localização não disponível');
             break;
           case error.TIMEOUT:
             errorMessage = 'Tempo limite excedido';
-            console.warn('[useGeolocation] Timeout ao obter localização');
+            console.log('[useGeolocation] ⏱️ Timeout ao obter localização');
             break;
           default:
-            console.warn('[useGeolocation] Erro desconhecido:', error.message);
+            console.log('[useGeolocation] ℹ️ Erro ao obter localização:', error.message);
         }
 
         setState({

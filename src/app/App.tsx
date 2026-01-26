@@ -15,6 +15,7 @@ import { Perfil } from "./components/screens/Perfil";
 import { Login } from "./components/screens/Login";
 import { TestAuthButton } from "./components/TestAuthButton";
 import { WikiGuideDemo } from "./components/WikiGuideDemo";
+import { TripPlanner } from "./components/screens/TripPlanner";
 import { NavigationProvider, useNavigation } from "./context/NavigationContext";
 import { TripsProvider } from "./context/TripsContext";
 import { AuthProvider } from "./context/AuthContext";
@@ -27,21 +28,55 @@ import { TestHelper } from "./components/TestHelper";
 const isDev = import.meta.env.DEV;
 
 function AppContent() {
-  const { currentScreen } = useNavigation();
+  const { currentScreen, setCurrentScreen } = useNavigation();
   const sharedTripData = useSharedTrip();
   const [showSharedModal, setShowSharedModal] = useState(false);
 
   // Debug - adicionar banner visual quando detectar link
   const [debugInfo, setDebugInfo] = useState("");
 
+  // Detectar pathname de reset de senha ou hash do Supabase
   useEffect(() => {
+    const path = window.location.pathname;
     const hash = window.location.hash;
+    const fullUrl = window.location.href;
+    
+    console.log('[App] 🔍 Verificando URL para detecção de rotas especiais...');
+    console.log('[App]   - Full URL:', fullUrl);
+    console.log('[App]   - Pathname:', path);
+    console.log('[App]   - Hash:', hash);
+    
+    // Detectar erro de link expirado/inválido no hash
+    if (hash.includes('error=access_denied') || 
+        hash.includes('error_code=otp_expired') ||
+        hash.includes('error_description=Email')) {
+      console.log('[App] ❌ Link de reset expirado ou inválido detectado');
+      // Redirecionar para tela de reset com flag de erro
+      setCurrentScreen('reset-password');
+      return;
+    }
+    
+    // Verificar se é um link de reset de senha (pathname ou hash com access_token)
+    const isResetPassword = path.includes('/reset-password') || 
+                           (hash.includes('access_token=') && hash.includes('type=recovery'));
+    
+    if (isResetPassword) {
+      console.log('[App] 🔐 ✅ Link de reset de senha detectado - redirecionando para tela de reset...');
+      console.log('[App] Pathname:', path);
+      console.log('[App] Hash:', hash.substring(0, 100) + '...');
+      setCurrentScreen('reset-password');
+      return;
+    }
+    
+    console.log('[App] ℹ️ Não é um link de reset de senha');
+    
+    // Detectar links de compartilhamento de viagem
     if (hash && (hash.includes('share=') || hash.includes('tripId='))) {
       const info = `🔍 DEBUG: Hash detectado! ${hash}`;
       console.log(info);
       setDebugInfo(info);
     }
-  }, []);
+  }, [setCurrentScreen]);
 
   // Debug
   useEffect(() => {
@@ -113,6 +148,8 @@ function AppContent() {
               return <ExchangeSystem />;
             case "guide":
               return <Guide />;
+            case "trip-planner":
+              return <TripPlanner />;
             default:
               // Detectar hash #wiki-guide para mostrar demo da Feature 4
               if (window.location.hash === '#wiki-guide') {

@@ -79,8 +79,20 @@ export class AuthService {
     try {
       console.log('[AuthService] Validando token com Supabase Auth...');
       
-      // Usar supabaseAnon para validar tokens de usuários (JWT)
-      const { data: { user }, error } = await this.supabase.auth.getUser(token);
+      // Criar client temporário com o token do usuário para validação correta
+      const userSupabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        }
+      );
+      
+      const { data: { user }, error } = await userSupabase.auth.getUser();
       
       if (error) {
         // Erro de "missing sub claim" geralmente significa que não é um JWT de usuário

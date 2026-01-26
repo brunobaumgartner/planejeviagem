@@ -34,11 +34,13 @@ export async function getUserLocation(): Promise<GeolocationPosition | null> {
         });
       },
       (error) => {
-        // Não logar erro se for por política de permissões (muito comum em iframes/embeds)
+        // Silenciosamente ignorar erro de permissão negada (comum em produção)
         if (error.code === error.PERMISSION_DENIED) {
-          console.warn('[Geolocation] Permissão de localização negada ou bloqueada por política');
+          console.log('[Geolocation] ℹ️ Localização não disponível - usando localização padrão');
+        } else if (error.code === error.TIMEOUT) {
+          console.log('[Geolocation] ⏱️ Timeout ao obter localização');
         } else {
-          console.warn('[Geolocation] Erro ao obter localização:', error.message);
+          console.log('[Geolocation] ℹ️ Localização não disponível:', error.message);
         }
         resolve(null);
       },

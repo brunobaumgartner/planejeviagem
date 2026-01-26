@@ -6,6 +6,10 @@ import * as kv from './kv_store.tsx';
 import * as dataFetcher from './data-fetcher.tsx';
 import { AuthService } from './auth.tsx';
 import travelpayoutsRoutes from './travelpayouts.tsx';
+import * as tpDestinations from './travelpayouts-destinations.tsx';
+import * as tpHotels from './travelpayouts-hotels.tsx';
+import * as tpFlights from './travelpayouts-flights.tsx';
+import { sendPasswordResetEmail } from './email.tsx';
 
 const app = new Hono();
 
@@ -68,6 +72,31 @@ function getAccessToken(c: any): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   
   return authHeader.substring(7);
+}
+
+/**
+ * Valida um access token e retorna o usuário autenticado
+ * Usa um client temporário com o token do usuário ao invés do service role key
+ */
+async function getUserFromToken(accessToken: string): Promise<{ user: any | null; error: any | null }> {
+  try {
+    const userSupabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      }
+    );
+    
+    const { data: { user }, error } = await userSupabase.auth.getUser();
+    return { user, error };
+  } catch (err) {
+    return { user: null, error: err };
+  }
 }
 
 /**
@@ -288,6 +317,234 @@ app.get('/make-server-5f5857fb/health', async (c) => {
   }
 });
 
+// ============================================
+// TRIP CALCULATOR - Budget & Destination Search
+// ============================================
+
+// ENDPOINT DE TESTE DA API
+app.get('/make-server-5f5857fb/test-api', async (c) => {
+  const token = Deno.env.get('TRAVELPAYOUTS_TOKEN');
+  
+  console.log('[TEST] Token exists:', !!token);
+  console.log('[TEST] Token length:', token?.length);
+  
+  // Testa uma rota simples: SAO -> RIO
+  const url = `https://api.travelpayouts.com/v1/prices/cheap?origin=SAO&destination=RIO&currency=brl&token=${token}`;
+  
+  try {
+    console.log('[TEST] URL:', url);
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    console.log('[TEST] Status:', response.status);
+    console.log('[TEST] Response:', JSON.stringify(data, null, 2));
+    
+    return c.json({
+      status: response.status,
+      hasToken: !!token,
+      url: url,
+      data: data
+    });
+  } catch (error) {
+    console.error('[TEST] Error:', error);
+    return c.json({ error: String(error) });
+  }
+});
+
+// REMOVED: Função fetchFlightPrice() - Substituída por:
+//   - tpFlights.fetchSpecificFlightPrice() para buscas específicas
+//   - tpFlights.fetchAllDestinationsWithPrices() para buscar todos os destinos
+// REMOVED: Lista fixa de destinos - Agora 100% dinâmico da API!
+
+// Trip Calculator endpoint
+app.get('/make-server-5f5857fb/trip-calculator', async (c) => {
+  console.log('[TripCalculator] 🚀 Request received');
+  
+  try {
+    const searchType = c.req.query('searchType');
+    const budget = parseFloat(c.req.query('budget') || '0');
+    const destination = c.req.query('destination') || '';
+    const origin = c.req.query('origin') || '';
+    const days = parseInt(c.req.query('days') || '7');
+    const currency = c.req.query('currency') || 'BRL';
+
+    console.log('[TripCalculator] Params:', { searchType, budget, destination, origin, days, currency });
+
+    // Validar origem
+    if (!origin) {
+      console.error('[TripCalculator] ❌ Origem não fornecida');
+      return c.json({
+        results: [],
+        error: 'Origem não fornecida. Por favor, informe de onde você está saindo.'
+      });
+    }
+
+    // Buscar código IATA da origem no banco completo de cidades
+    console.log(`[TripCalculator] 🔍 Buscando código IATA para origem "${origin}"...`);
+    const originCode = await tpDestinations.findCityCode(origin);
+    
+    if (!originCode) {
+      console.error(`[TripCalculator] ❌ Cidade de origem "${origin}" não encontrada`);
+      return c.json({
+        results: [],
+        error: `Cidade de origem "${origin}" não encontrada. Tente outro nome ou verifique a ortografia.`
+      });
+    }
+
+    console.log(`[TripCalculator] ✅ Código de origem encontrado: ${originCode}`);
+    
+    if (searchType === 'destination') {
+      // Calculate cost for specific destination - BUSCAR DA API DINAMICAMENTE
+      console.log(`[TripCalculator] 🔍 Buscando código IATA para "${destination}"`);
+      const destCode = await tpDestinations.findCityCode(destination);
+      
+      if (!destCode) {
+        console.warn(`[TripCalculator] ⚠️ Cidade "${destination}" não encontrada na API`);
+        return c.json({
+          results: [],
+          error: `Destino "${destination}" não encontrado. Tente outro nome ou verifique a ortografia.`
+        });
+      }
+
+      console.log(`[TripCalculator] ✅ Código encontrado: ${destCode}`);
+
+      // Buscar preço de voo usando função ESPECÍFICA
+      const flightPrice = await tpFlights.fetchSpecificFlightPrice(originCode, destCode);
+      
+      // SE API NÃO RETORNOU PREÇO, RETORNA ERRO
+      if (flightPrice === null) {
+        console.error(`[TripCalculator] ❌ Sem dados de voo da API para ${destination}`);
+        return c.json({
+          results: [],
+          error: `Não foi possível obter preços reais de voos para ${destination}. Tente outro destino.`
+        });
+      }
+      
+      // BUSCAR CUSTOS DINÂMICOS - 100% da API!
+      console.log(`[TripCalculator] 🏨 Buscando preços dinâmicos de hospedagem para ${destCode}...`);
+      const accommodationData = await tpHotels.getAccommodationPrice(destCode, flightPrice);
+      
+      const accommodationPerNight = accommodationData.accommodation;
+      const dailyExpenses = accommodationData.dailyExpenses;
+      const dataSource = accommodationData.source;
+      
+      console.log(`[TripCalculator] 📊 Preços obtidos (${dataSource}): Hospedagem R$ ${accommodationPerNight}/noite, Gastos R$ ${dailyExpenses}/dia`);
+      
+      // Buscar informações do destino diretamente do banco de cidades
+      const destInfo = await tpDestinations.getCityInfoByCode(destCode);
+      
+      if (!destInfo) {
+        console.warn(`[TripCalculator] ⚠️ Informações não encontradas para ${destCode}`);
+        return c.json({
+          results: [],
+          error: 'Não foi possível calcular custos para este destino'
+        });
+      }
+      
+      // Calcular emoji com base no país
+      const costs = tpDestinations.estimateDestinationCosts(destInfo);
+      
+      const totalAccommodation = accommodationPerNight * days;
+      const totalDailyExpenses = dailyExpenses * days;
+      const totalFlights = flightPrice; // API já retorna ida+volta
+      
+      const totalCost = totalFlights + totalAccommodation + totalDailyExpenses;
+
+      console.log(`[TripCalculator] ✅ Cálculo para ${destInfo.name}: Total R$ ${totalCost} (Voo: R$ ${flightPrice}, Hospedagem: R$ ${totalAccommodation}, Gastos: R$ ${totalDailyExpenses})`);
+
+      return c.json({
+        results: [{
+          destination: destInfo.name, // Nome completo da cidade da API
+          totalCost: totalCost,
+          breakdown: {
+            flights: totalFlights,
+            accommodation: totalAccommodation,
+            dailyExpenses: totalDailyExpenses
+          },
+          days: days,
+          currency: currency,
+          emoji: costs.emoji
+        }]
+      });
+      
+    } else if (searchType === 'budget') {
+      // ESTRATÉGIA OTIMIZADA: Buscar TODOS os destinos com preços em UMA ÚNICA chamada!
+      console.log('[TripCalculator] 🌍 Buscando TODOS os destinos com preços em uma única chamada...');
+      
+      const allDestinationsData = await tpFlights.fetchAllDestinationsWithPrices(originCode);
+      
+      if (!allDestinationsData || allDestinationsData.destinations.length === 0) {
+        console.warn('[TripCalculator] ⚠️ Nenhum destino encontrado na API');
+        return c.json({
+          results: [],
+          error: 'Não foi possível carregar destinos. Tente novamente mais tarde.'
+        });
+      }
+      
+      console.log(`[TripCalculator] ✅ ${allDestinationsData.totalDestinations} destinos carregados (${allDestinationsData.source}) - ZERO lista fixa!`);
+
+      const results = [];
+
+      // Processar cada destino (preços de voos JÁ ESTÃO AQUI!)
+      for (const flightData of allDestinationsData.destinations) {
+        const flightPrice = flightData.price;
+        const destCode = flightData.destination;
+        const destName = flightData.destinationName;
+        
+        // BUSCAR CUSTOS DINÂMICOS - 100% da API ou estimativa inteligente!
+        const accommodationData = await tpHotels.getAccommodationPrice(destCode, flightPrice);
+        const accommodationPerNight = accommodationData.accommodation;
+        const dailyExpenses = accommodationData.dailyExpenses;
+        
+        const totalAccommodation = accommodationPerNight * days;
+        const totalDailyExpenses = dailyExpenses * days;
+        const totalFlights = flightPrice; // API já retorna ida+volta
+        
+        const totalCost = totalFlights + totalAccommodation + totalDailyExpenses;
+
+        console.log(`[TripCalculator] ${destName}: Voos R$ ${totalFlights} + Hotel R$ ${totalAccommodation} (${accommodationData.source}) + Diárias R$ ${totalDailyExpenses} = Total R$ ${totalCost}`);
+
+        // Only include if within budget
+        if (totalCost <= budget) {
+          // Buscar emoji (se disponível)
+          const destinations = await tpDestinations.fetchPopularDestinations(originCode);
+          const destInfo = destinations.find(d => d.code === destCode);
+          const emoji = destInfo ? tpDestinations.estimateDestinationCosts(destInfo).emoji : '✈️';
+          
+          results.push({
+            destination: destName,
+            totalCost: totalCost,
+            breakdown: {
+              flights: totalFlights,
+              accommodation: totalAccommodation,
+              dailyExpenses: totalDailyExpenses
+            },
+            days: days,
+            currency: currency,
+            emoji: emoji
+          });
+        }
+      }
+
+      // Sort by cost (cheapest first)
+      results.sort((a, b) => a.totalCost - b.totalCost);
+
+      console.log(`[TripCalculator] ✅ Encontrados ${results.length} destinos dentro do orçamento de R$ ${budget} (SEM LISTA FIXA!)`);
+
+      return c.json({ results });
+    }
+
+    return c.json({ results: [], error: 'Tipo de busca inválido' });
+    
+  } catch (error) {
+    console.error('[TripCalculator] Erro:', error);
+    return c.json({
+      results: [],
+      error: error instanceof Error ? error.message : 'Erro ao calcular'
+    }, 500);
+  }
+});
+
 // Test JWT validation
 app.post('/make-server-5f5857fb/test-jwt', async (c) => {
   console.log('==========================================');
@@ -380,6 +637,14 @@ app.post('/make-server-5f5857fb/auth/signup', async (c) => {
 
     if (authError) {
       console.error('Auth error:', authError);
+      
+      // Tratamento específico para email já existente
+      if (authError.message?.includes('already been registered') || authError.code === 'email_exists') {
+        return c.json({ 
+          error: 'Este email já está cadastrado. Tente fazer login ou recuperar sua senha.' 
+        }, 409);
+      }
+      
       return c.json({ error: authError.message }, 400);
     }
 
@@ -1279,7 +1544,7 @@ app.get('/make-server-5f5857fb/admin/users', async (c) => {
     }
     
     // Validar token
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    const { user, error: authError } = await getUserFromToken(accessToken);
     if (authError || !user) {
       console.error('[Admin Users] ❌ Erro de autenticação:', authError);
       return c.json({ error: `Não autorizado: ${authError?.message || 'Usuário não encontrado'}` }, 401);
@@ -1325,8 +1590,8 @@ app.get('/make-server-5f5857fb/admin/trips', async (c) => {
     }
     
     // Validar token
-    console.log('[Admin Trips] Validando token com supabaseAdmin.auth.getUser()...');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    console.log('[Admin Trips] Validando token...');
+    const { user, error: authError } = await getUserFromToken(accessToken);
     console.log('[Admin Trips] Resultado da validação:', {
       hasUser: !!user,
       userId: user?.id,
@@ -1473,6 +1738,83 @@ app.delete('/make-server-5f5857fb/admin/city-budgets/:budgetId', async (c) => {
   }
 });
 
+// Endpoint público para solicitar código de reset (qualquer usuário pode usar)
+app.post('/make-server-5f5857fb/auth/request-reset-code', async (c) => {
+  try {
+    console.log('[Request Reset Code] Nova solicitação recebida');
+    
+    const { email } = await c.req.json();
+    
+    if (!email) {
+      return c.json({ error: 'Email não fornecido' }, 400);
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ error: 'Email inválido' }, 400);
+    }
+
+    console.log('[Request Reset Code] Gerando código para:', email);
+
+    // Verificar se usuário existe
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (userError) {
+      console.error('[Request Reset Code] ❌ Erro ao buscar usuários:', userError);
+      return c.json({ error: 'Erro ao processar solicitação' }, 500);
+    }
+
+    const userExists = userData.users.find(u => u.email === email);
+    
+    // Por segurança, sempre retornar sucesso mesmo se usuário não existir
+    // Isso evita que alguém descubra emails cadastrados
+    if (!userExists) {
+      console.log('[Request Reset Code] ⚠️ Usuário não encontrado, mas retornando sucesso');
+    }
+
+    // Gerar código de 6 dígitos
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + (15 * 60 * 1000); // 15 minutos
+    
+    // Armazenar código no KV store
+    const resetData = {
+      code: resetCode,
+      email: email,
+      expiresAt: expiresAt,
+      attempts: 0,
+      createdAt: Date.now()
+    };
+    
+    await kv.set(`reset_code:${email}`, resetData);
+    
+    console.log('[Request Reset Code] 🔑 Código gerado:', resetCode);
+    console.log('[Request Reset Code] ⏰ Expira em:', new Date(expiresAt).toISOString());
+    
+    // Enviar email com código
+    const emailResult = await sendPasswordResetEmail(email, resetCode, 15);
+    
+    if (!emailResult.success) {
+      console.error('[Request Reset Code] ❌ Erro ao enviar email:', emailResult.error);
+      // Não retornar erro para o usuário (segurança)
+      // Mas logar para debug
+    } else {
+      console.log('[Request Reset Code] ✅ Email enviado com sucesso:', emailResult.messageId);
+    }
+
+    console.log('[Request Reset Code] ✅ Código criado com sucesso');
+    return c.json({ 
+      success: true, 
+      message: `Código de verificação enviado para ${email}`,
+      // Em desenvolvimento, retornar o código para facilitar testes
+      ...(Deno.env.get('ENVIRONMENT') !== 'production' && { devCode: resetCode })
+    });
+  } catch (error) {
+    console.error('[Request Reset Code] ❌ Erro inesperado:', error);
+    return c.json({ error: 'Erro ao processar solicitação' }, 500);
+  }
+});
+
 // Reset user password (admin only)
 app.post('/make-server-5f5857fb/admin/reset-password', async (c) => {
   try {
@@ -1488,7 +1830,7 @@ app.post('/make-server-5f5857fb/admin/reset-password', async (c) => {
     console.log('[Admin Reset Password] Token recebido:', accessToken.substring(0, 20) + '...');
 
     // Verificar se o usuário é admin
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    const { user, error: authError } = await getUserFromToken(accessToken);
     
     if (authError || !user) {
       console.error('[Admin Reset Password] ❌ Erro de autenticação:', authError);
@@ -1516,26 +1858,186 @@ app.post('/make-server-5f5857fb/admin/reset-password', async (c) => {
       return c.json({ error: 'Email não fornecido' }, 400);
     }
 
-    console.log('[Admin Reset Password] Enviando link de reset para:', email);
+    console.log('[Admin Reset Password] Enviando código de reset para:', email);
 
-    // Enviar email de recuperação usando Supabase Auth Admin
-    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${c.req.header('origin') || 'http://localhost:5173'}/reset-password`,
-    });
-
-    if (resetError) {
-      console.error('[Admin Reset Password] ❌ Erro ao enviar email:', resetError);
-      return c.json({ error: resetError.message }, 500);
+    // ===== NOVO SISTEMA: GERAR CÓDIGO DE 6 DÍGITOS =====
+    
+    // Gerar código de 6 dígitos
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + (15 * 60 * 1000); // 15 minutos
+    
+    // Armazenar código no KV store
+    const resetData = {
+      code: resetCode,
+      email: email,
+      expiresAt: expiresAt,
+      attempts: 0,
+      createdAt: Date.now()
+    };
+    
+    await kv.set(`reset_code:${email}`, resetData);
+    
+    console.log('[Admin Reset Password] 🔑 Código gerado:', resetCode);
+    console.log('[Admin Reset Password] ⏰ Expira em:', new Date(expiresAt).toISOString());
+    
+    // Enviar email com código
+    const emailResult = await sendPasswordResetEmail(email, resetCode, 15);
+    
+    if (!emailResult.success) {
+      console.error('[Admin Reset Password] ❌ Erro ao enviar email:', emailResult.error);
+      return c.json({ error: `Erro ao enviar email: ${emailResult.error}` }, 500);
     }
-
-    console.log('[Admin Reset Password] ✅ Email de reset enviado com sucesso');
+    
+    console.log('[Admin Reset Password] ✅ Email enviado com sucesso:', emailResult.messageId);
+    console.log('[Admin Reset Password] ✅ Código de reset criado com sucesso');
     return c.json({ 
       success: true, 
-      message: `Link de redefinição enviado para ${email}` 
+      message: `Código de redefinição enviado para ${email}`,
+      // Em desenvolvimento, retornar o código para facilitar testes
+      ...(Deno.env.get('ENVIRONMENT') !== 'production' && { devCode: resetCode })
     });
   } catch (error) {
     console.error('[Admin Reset Password] ❌ Erro inesperado:', error);
     return c.json({ error: 'Erro interno do servidor' }, 500);
+  }
+});
+
+// Endpoint para validar código de reset
+app.post('/make-server-5f5857fb/auth/verify-reset-code', async (c) => {
+  try {
+    const { email, code } = await c.req.json();
+    
+    if (!email || !code) {
+      return c.json({ error: 'Email e código são obrigatórios' }, 400);
+    }
+
+    console.log('[Verify Reset Code] Validando código para:', email);
+
+    // Buscar código no KV store
+    const resetData = await kv.get(`reset_code:${email}`);
+    
+    if (!resetData) {
+      console.log('[Verify Reset Code] ❌ Código não encontrado para:', email);
+      return c.json({ 
+        valid: false,
+        error: 'Código inválido ou expirado' 
+      }, 400);
+    }
+
+    // Verificar se expirou
+    if (Date.now() > resetData.expiresAt) {
+      console.log('[Verify Reset Code] ❌ Código expirado para:', email);
+      await kv.del(`reset_code:${email}`);
+      return c.json({ 
+        valid: false,
+        error: 'Código expirado. Solicite um novo código.' 
+      }, 400);
+    }
+
+    // Verificar tentativas
+    if (resetData.attempts >= 3) {
+      console.log('[Verify Reset Code] ❌ Muitas tentativas para:', email);
+      await kv.del(`reset_code:${email}`);
+      return c.json({ 
+        valid: false,
+        error: 'Muitas tentativas. Solicite um novo código.' 
+      }, 400);
+    }
+
+    // Verificar código
+    if (resetData.code !== code) {
+      console.log('[Verify Reset Code] ❌ Código incorreto para:', email);
+      // Incrementar tentativas
+      resetData.attempts += 1;
+      await kv.set(`reset_code:${email}`, resetData);
+      return c.json({ 
+        valid: false,
+        error: `Código incorreto. ${3 - resetData.attempts} tentativa(s) restante(s).` 
+      }, 400);
+    }
+
+    console.log('[Verify Reset Code] ✅ Código válido para:', email);
+    return c.json({ 
+      valid: true,
+      message: 'Código válido' 
+    });
+  } catch (error) {
+    console.error('[Verify Reset Code] ❌ Erro:', error);
+    return c.json({ error: 'Erro ao validar código' }, 500);
+  }
+});
+
+// Endpoint para resetar senha com código
+app.post('/make-server-5f5857fb/auth/reset-password-with-code', async (c) => {
+  try {
+    const { email, code, newPassword } = await c.req.json();
+    
+    if (!email || !code || !newPassword) {
+      return c.json({ error: 'Email, código e nova senha são obrigatórios' }, 400);
+    }
+
+    if (newPassword.length < 6) {
+      return c.json({ error: 'A senha deve ter no mínimo 6 caracteres' }, 400);
+    }
+
+    console.log('[Reset Password With Code] Resetando senha para:', email);
+
+    // Buscar e validar código
+    const resetData = await kv.get(`reset_code:${email}`);
+    
+    if (!resetData) {
+      console.log('[Reset Password With Code] ❌ Código não encontrado');
+      return c.json({ error: 'Código inválido ou expirado' }, 400);
+    }
+
+    if (Date.now() > resetData.expiresAt) {
+      console.log('[Reset Password With Code] ❌ Código expirado');
+      await kv.del(`reset_code:${email}`);
+      return c.json({ error: 'Código expirado. Solicite um novo código.' }, 400);
+    }
+
+    if (resetData.code !== code) {
+      console.log('[Reset Password With Code] ❌ Código incorreto');
+      return c.json({ error: 'Código inválido' }, 400);
+    }
+
+    // Buscar usuário pelo email
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (userError) {
+      console.error('[Reset Password With Code] ❌ Erro ao buscar usuário:', userError);
+      return c.json({ error: 'Erro ao buscar usuário' }, 500);
+    }
+
+    const user = userData.users.find(u => u.email === email);
+    
+    if (!user) {
+      console.log('[Reset Password With Code] ❌ Usuário não encontrado:', email);
+      return c.json({ error: 'Usuário não encontrado' }, 404);
+    }
+
+    // Atualizar senha do usuário
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error('[Reset Password With Code] ❌ Erro ao atualizar senha:', updateError);
+      return c.json({ error: 'Erro ao atualizar senha' }, 500);
+    }
+
+    // Deletar código usado
+    await kv.del(`reset_code:${email}`);
+
+    console.log('[Reset Password With Code] ✅ Senha atualizada com sucesso para:', email);
+    return c.json({ 
+      success: true,
+      message: 'Senha atualizada com sucesso' 
+    });
+  } catch (error) {
+    console.error('[Reset Password With Code] ❌ Erro:', error);
+    return c.json({ error: 'Erro ao resetar senha' }, 500);
   }
 });
 
@@ -1889,7 +2391,7 @@ app.get('/make-server-5f5857fb/admin/purchases', async (c) => {
     }
     
     // Validar token
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    const { user, error: authError } = await getUserFromToken(accessToken);
     if (authError || !user) {
       console.error('[Admin Purchases] ❌ Erro de autenticação:', authError);
       return c.json({ error: `Não autorizado: ${authError?.message || 'Usuário não encontrado'}` }, 401);
@@ -4654,5 +5156,63 @@ console.log('');
 
 // Mount Travelpayouts routes
 app.route('/make-server-5f5857fb/travelpayouts', travelpayoutsRoutes);
+
+// ============================================
+// REFRESH DESTINATIONS CACHE - Atualizar cache da API
+// ============================================
+app.post('/make-server-5f5857fb/refresh-destinations-cache', async (c) => {
+  console.log('[RefreshCache] 🔄 Atualizando cache de destinos');
+  
+  try {
+    const origin = c.req.query('origin') || 'SAO';
+    
+    // Forçar atualização do cache
+    await tpDestinations.refreshDestinationsCache(origin);
+    
+    // Buscar destinos atualizados
+    const destinations = await tpDestinations.fetchPopularDestinations(origin);
+    
+    return c.json({
+      success: true,
+      message: `Cache atualizado com sucesso para origem ${origin}`,
+      total: destinations.length,
+      origin: origin,
+      cachedAt: new Date().toISOString(),
+      expiresIn: '24 horas'
+    });
+    
+  } catch (error) {
+    console.error('[RefreshCache] ❌ Erro:', error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao atualizar cache'
+    }, 500);
+  }
+});
+
+// ============================================
+// GET CACHED DESTINATIONS - Ver destinos em cache
+// ============================================
+app.get('/make-server-5f5857fb/cached-destinations', async (c) => {
+  console.log('[CachedDestinations] 📋 Listando destinos em cache');
+  
+  try {
+    const origin = c.req.query('origin') || 'SAO';
+    const destinations = await tpDestinations.fetchPopularDestinations(origin);
+    
+    return c.json({
+      success: true,
+      destinations: destinations,
+      total: destinations.length,
+      origin: origin
+    });
+  } catch (error) {
+    console.error('[CachedDestinations] ❌ Erro:', error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar destinos'
+    }, 500);
+  }
+});
 
 Deno.serve(app.fetch);
