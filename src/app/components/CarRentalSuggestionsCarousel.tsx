@@ -188,7 +188,7 @@ export function CarRentalSuggestionsCarousel() {
         <AlertCircle className="w-3 h-3" />
         <p>
           Links de afiliado. Ao clicar você será redirecionado
-          para o Rentalcars. <strong>Nota:</strong> Para ganhar comissão, você precisa se cadastrar no programa de afiliados do Rentalcars separadamente.
+          para o Rentalcars.
         </p>
       </div>
     </div>

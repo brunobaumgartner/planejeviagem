@@ -2,24 +2,24 @@ import { useEffect, useRef } from 'react';
 
 export function FlightWidget() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
-    // Evitar múltiplas cargas do script
-    if (scriptLoadedRef.current || !containerRef.current) return;
-    
-    scriptLoadedRef.current = true;
-    
+    if (!containerRef.current) return;
+
+    // Evita carregar o script mais de uma vez
+    if (document.querySelector('script[data-flight-widget]')) {
+      return;
+    }
+
     const script = document.createElement('script');
-    script.src = 'https://tpwidg.com/content?currency=brl&trs=491435&shmarker=698211.698211&powered_by=true&locale=pt&searchUrl=www.aviasales.pt%2Fsearch&primary_override=%2332a8dd&color_button=%2332a8dd&color_icons=%2332a8dd&dark=%23262626&light=%23FFFFFF&secondary=%23FFFFFF&special=%23C4C4C4&color_focused=%2332a8dd&border_radius=8&no_labels=true&plain=true&promo_id=7879&campaign_id=100';
+    script.src =
+      'https://tpwidg.com/content?currency=brl&trs=491435&shmarker=698211.698211&powered_by=true&locale=pt&searchUrl=www.aviasales.pt%2Fsearch&primary_override=%2332a8dd&color_button=%2332a8dd&color_icons=%2332a8dd&dark=%23262626&light=%23FFFFFF&secondary=%23FFFFFF&special=%23C4C4C4&color_focused=%2332a8dd&border_radius=8&no_labels=true&plain=true&promo_id=7879&campaign_id=100';
+
     script.async = true;
     script.charset = 'utf-8';
-    
-    containerRef.current.appendChild(script);
+    script.setAttribute('data-flight-widget', 'true');
 
-    return () => {
-      scriptLoadedRef.current = false;
-    };
+    containerRef.current.appendChild(script);
   }, []);
 
   return (
@@ -27,9 +27,9 @@ export function FlightWidget() {
       <h2 className="text-lg font-bold text-gray-900 mb-3 px-1">
         ✈️ Buscar Voos
       </h2>
-      <div 
+      <div
         ref={containerRef}
-        className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200"
+        className="bg-white rounded-xl shadow-sm border border-gray-200"
       />
     </div>
   );

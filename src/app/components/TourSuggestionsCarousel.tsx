@@ -188,7 +188,7 @@ export function TourSuggestionsCarousel() {
         <AlertCircle className="w-3 h-3" />
         <p>
           Links de afiliado. Ao clicar você será redirecionado
-          para o GetYourGuide. <strong>Nota:</strong> Para ganhar comissão, você precisa se cadastrar no programa de afiliados do GetYourGuide separadamente.
+          para o GetYourGuide.
         </p>
       </div>
     </div>

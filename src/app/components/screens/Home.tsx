@@ -70,7 +70,7 @@ export function Home() {
 
         {/* Search Bar */}
         <div className="mb-6 sm:mb-8">
-          <SearchBar placeholder="Para onde voc quer ir?" onCitySelect={handleCitySelect} />
+          <SearchBar placeholder="Para onde você quer ir?" onCitySelect={handleCitySelect} />
         </div>
 
         {/* FEATURE 4: Guia Turístico */}

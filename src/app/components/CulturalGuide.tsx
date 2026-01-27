@@ -20,7 +20,7 @@ import type { CityGuide } from '@/services/wikiService';
 
 interface CulturalGuideProps {
   cityName: string;
-  defaultLanguage?: 'pt' | 'en' | 'es';
+  defaultLanguage?: 'pt';
   compact?: boolean; // Versão compacta para cards
 }
 
@@ -32,7 +32,7 @@ export function CulturalGuide({
   const [guide, setGuide] = useState<CityGuide | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [language, setLanguage] = useState<'pt' | 'en' | 'es'>(defaultLanguage);
+  const [language, setLanguage] = useState<'pt'>(defaultLanguage);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['history'])); // Começar com História expandida
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export function CulturalGuide({
           
           {/* Seletor de idioma */}
           <div className="flex items-center gap-1 bg-white rounded-lg p-1 shadow-sm">
-            {(['pt', 'en', 'es'] as const).map((lang) => (
+            {(['pt'] as const).map((lang) => (
               <button
                 key={lang}
                 onClick={() => setLanguage(lang)}

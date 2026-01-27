@@ -23,7 +23,7 @@ export interface WikiArticle {
   extract: string; // Resumo/introdução
   fullUrl: string;
   thumbnail?: string;
-  language: 'pt' | 'en' | 'es';
+  language: 'pt';
   lastModified?: string;
 }
 
@@ -90,7 +90,7 @@ function setCache(key: string, data: any): void {
  */
 export async function getWikipediaArticle(
   cityName: string,
-  language: 'pt' | 'en' | 'es' = 'pt'
+  language: 'pt'
 ): Promise<WikiArticle | null> {
   const cacheKey = `wikivoyage_article_${cityName}_${language}`;
   const cached = getCached<WikiArticle>(cacheKey);
@@ -98,8 +98,7 @@ export async function getWikipediaArticle(
 
   try {
     // Tentar Wikivoyage primeiro (melhor para viagens!)
-    const voyageDomain = language === 'pt' ? 'pt.wikivoyage.org' : 
-                         language === 'es' ? 'es.wikivoyage.org' : 'en.wikivoyage.org';
+    const voyageDomain =  'pt.wikivoyage.org';
     
     let url = `https://${voyageDomain}/api/rest_v1/page/summary/${encodeURIComponent(cityName)}`;
     let response = await fetch(url);
@@ -115,8 +114,7 @@ export async function getWikipediaArticle(
     // Fallback final: Wikipedia
     if (!response.ok) {
       console.log('[WikiService] Wikivoyage não disponível, usando Wikipedia como fallback...');
-      const wikiDomain = language === 'pt' ? 'pt.wikipedia.org' : 
-                         language === 'es' ? 'es.wikipedia.org' : 'en.wikipedia.org';
+      const wikiDomain = 'pt.wikipedia.org';
       url = `https://${wikiDomain}/api/rest_v1/page/summary/${encodeURIComponent(cityName)}`;
       response = await fetch(url);
     }
@@ -151,7 +149,7 @@ export async function getWikipediaArticle(
  */
 export async function getArticleSections(
   cityName: string,
-  language: 'pt' | 'en' | 'es' = 'pt'
+  language: 'pt'
 ): Promise<WikiSection[]> {
   const cacheKey = `wikivoyage_sections_${cityName}_${language}`;
   const cached = getCached<WikiSection[]>(cacheKey);
@@ -159,8 +157,7 @@ export async function getArticleSections(
 
   try {
     // Tentar Wikivoyage primeiro
-    let voyageDomain = language === 'pt' ? 'pt.wikivoyage.org' : 
-                       language === 'es' ? 'es.wikivoyage.org' : 'en.wikivoyage.org';
+    let voyageDomain = 'pt.wikivoyage.org';
     
     // Buscar conteúdo usando extracts API
     let textUrl = `https://${voyageDomain}/w/api.php?` +
@@ -191,8 +188,7 @@ export async function getArticleSections(
     
     // Fallback final: Wikipedia
     if (!textResponse.ok) {
-      const wikiDomain = language === 'pt' ? 'pt.wikipedia.org' : 
-                         language === 'es' ? 'es.wikipedia.org' : 'en.wikipedia.org';
+      const wikiDomain = 'pt.wikipedia.org';
       textUrl = `https://${wikiDomain}/w/api.php?` +
         `action=query&` +
         `format=json&` +
@@ -257,7 +253,7 @@ export async function getArticleSections(
  */
 export async function getArticleImages(
   cityName: string,
-  language: 'pt' | 'en' | 'es' = 'pt',
+  language: 'pt',
   limit: number = 10
 ): Promise<WikiImage[]> {
   const cacheKey = `wikivoyage_images_${cityName}_${language}_${limit}`;
@@ -331,12 +327,11 @@ export async function getArticleImages(
  */
 async function getImagesFromWikipedia(
   cityName: string,
-  language: 'pt' | 'en' | 'es',
+  language: 'pt',
   limit: number
 ): Promise<WikiImage[]> {
   try {
-    const domain = language === 'pt' ? 'pt.wikipedia.org' : 
-                   language === 'es' ? 'es.wikipedia.org' : 'en.wikipedia.org';
+    const domain = 'pt.wikipedia.org';
     
     const url = `https://${domain}/w/api.php?` +
       `action=query&` +
@@ -414,7 +409,7 @@ async function getImagesFromWikipedia(
  */
 export async function getCityGuide(
   cityName: string,
-  language: 'pt' | 'en' | 'es' = 'pt'
+  language: 'pt'
 ): Promise<CityGuide | null> {
   const cacheKey = `city_guide_${cityName}_${language}`;
   const cached = getCached<CityGuide>(cacheKey);
@@ -505,11 +500,10 @@ export async function getCityGuide(
  * Gera dicas de viagem baseadas nas seções estruturadas do WIKIVOYAGE
  * USA A API PARSE para obter HTML estruturado!
  */
-async function generateTravelTipsFromWikivoyage(cityName: string, language: 'pt' | 'en' | 'es'): Promise<string[]> {
+async function generateTravelTipsFromWikivoyage(cityName: string, language: 'pt'): Promise<string[]> {
   try {
     // Determinar domínio
-    const domain = language === 'pt' ? 'pt.wikivoyage.org' : 
-                   language === 'es' ? 'es.wikivoyage.org' : 'en.wikivoyage.org';
+    const domain = 'pt.wikivoyage.org';
     
     // USAR API PARSE para obter HTML estruturado
     let url = `https://${domain}/w/api.php?` +
@@ -675,7 +669,7 @@ export async function getRelatedDestinations(
  */
 export async function searchCities(
   query: string,
-  language: 'pt' | 'en' | 'es' = 'pt',
+  language: 'pt',
   limit: number = 10
 ): Promise<Array<{ title: string; description?: string; thumbnail?: string }>> {
   if (!query.trim()) return [];
@@ -686,8 +680,7 @@ export async function searchCities(
 
   try {
     // Tentar Wikivoyage primeiro (sempre retorna destinos!)
-    let domain = language === 'pt' ? 'pt.wikivoyage.org' : 
-                 language === 'es' ? 'es.wikivoyage.org' : 'en.wikivoyage.org';
+    let domain = 'pt.wikivoyage.org';
     
     let searchUrl = `https://${domain}/w/api.php?` +
       `action=opensearch&` +
@@ -714,8 +707,7 @@ export async function searchCities(
     
     // Fallback final: Wikipedia com filtro
     if (!response.ok) {
-      domain = language === 'pt' ? 'pt.wikipedia.org' : 
-               language === 'es' ? 'es.wikipedia.org' : 'en.wikipedia.org';
+      domain = 'pt.wikipedia.org';
       searchUrl = `https://${domain}/w/api.php?` +
         `action=opensearch&` +
         `format=json&` +

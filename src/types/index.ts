@@ -18,7 +18,7 @@ export interface WikiArticle {
   extract: string;
   fullUrl: string;
   thumbnail?: string;
-  language: 'pt' | 'en' | 'es';
+  language: 'pt';
   lastModified?: string;
 }
 

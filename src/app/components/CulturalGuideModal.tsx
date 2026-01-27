@@ -22,7 +22,7 @@ interface CulturalGuideModalProps {
   cityName: string;
   isOpen: boolean;
   onClose: () => void;
-  defaultLanguage?: 'pt' | 'en' | 'es';
+  defaultLanguage?: 'pt';
 }
 
 type Tab = 'about' | 'tips';
@@ -37,7 +37,7 @@ export function CulturalGuideModal({
   const [guide, setGuide] = useState<CityGuide | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [language, setLanguage] = useState<'pt' | 'en' | 'es'>(defaultLanguage);
+  const [language, setLanguage] = useState<'pt'>(defaultLanguage);
 
   // Carregar guia quando modal abre
   useEffect(() => {
@@ -67,7 +67,7 @@ export function CulturalGuideModal({
     }
   }
 
-  async function handleLanguageChange(newLang: 'pt' | 'en' | 'es') {
+  async function handleLanguageChange(newLang: 'pt') {
     setLanguage(newLang);
     setGuide(null);
     
@@ -123,25 +123,7 @@ export function CulturalGuideModal({
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Seletor de idioma */}
-            <div className="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
-              {(['pt', 'en', 'es'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => handleLanguageChange(lang)}
-                  disabled={loading}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    language === lang
-                      ? 'bg-white text-blue-600'
-                      : 'text-white hover:bg-white/20'
-                  }`}
-                >
-                  {lang.toUpperCase()}
-                </button>
-              ))}
-            </div>
-
-            {/* Botão compartilhar */}
+            {/* Botão compartilhar
             {guide && (
               <button
                 onClick={handleShare}
@@ -150,7 +132,7 @@ export function CulturalGuideModal({
               >
                 <Share2 className="w-5 h-5" />
               </button>
-            )}
+            )} */}
             
             {/* Botão fechar */}
             <button
