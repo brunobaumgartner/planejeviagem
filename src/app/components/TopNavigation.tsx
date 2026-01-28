@@ -57,10 +57,10 @@ export function TopNavigation({ activeTab }: TopNavigationProps) {
             {!isGuest && user && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
                 <div className="w-8 h-8 bg-sky-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                  {user.user_metadata?.name?.charAt(0).toUpperCase() || "U"}
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
                 </div>
                 <span className="text-sm text-gray-700 max-w-[120px] truncate">
-                  {user.user_metadata?.name || "Usuário"}
+                  {user?.name || "Usuário"}
                 </span>
               </div>
             )}

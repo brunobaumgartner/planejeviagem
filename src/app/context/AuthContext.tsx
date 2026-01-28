@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log('[AuthContext] Perfil não encontrado. Tentando criar automaticamente...');
             
             // Extract name from email or metadata
-            const name = session.user.user_metadata?.name || 
-                        session.user.user_metadata?.full_name ||
+            const name = session.user?.name || 
+                        session.user?.full_name ||
                         session.user.email?.split('@')[0] || 
                         'Usuário';
             
@@ -176,8 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log('[AuthContext] Perfil não encontrado. Criando automaticamente...');
             
             // Extract name from email or metadata
-            const name = data.session.user.user_metadata?.name || 
-                        data.session.user.user_metadata?.full_name ||
+            const name = data.session.user?.name || 
+                        data.session.user?.full_name ||
                         data.session.user.email?.split('@')[0] || 
                         'Usuário';
             

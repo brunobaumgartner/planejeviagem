@@ -225,7 +225,7 @@ export function AddTripModal({ isOpen, onClose, onSubmit }: AddTripModalProps) {
     if (parts.length >= 2) {
       return {
         city: parts[0],
-        country: parts[1]
+        country: parts.at(-1)
       };
     }
     return {

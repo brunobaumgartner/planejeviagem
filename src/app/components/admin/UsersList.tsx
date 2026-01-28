@@ -32,45 +32,30 @@ export function UsersList() {
       setError(null);
 
       const accessToken = await getAccessToken();
-      console.log('[Admin Users Frontend] ========== DIAGNÓSTICO ==========');
-      console.log('[Admin Users Frontend] 1. projectId:', projectId);
-      console.log('[Admin Users Frontend] 2. access_token existe?', !!accessToken);
-      console.log('[Admin Users Frontend] 3. access_token length:', accessToken?.length || 0);
       
       if (!accessToken) {
         throw new Error('Token de acesso não disponível. Faça login novamente.');
       }
 
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/admin/users`;
-      console.log('[Admin Users Frontend] 4. URL completa:', url);
-
-      // CORREÇÃO: Usar publicAnonKey no Authorization e accessToken no X-User-Token
+      
       const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${publicAnonKey}`,
         'X-User-Token': accessToken,
       };
-      console.log('[Admin Users Frontend] 5. Headers:', Object.keys(headers));
 
       const response = await fetch(url, { headers });
-
-      console.log('[Admin Users Frontend] 6. Response status:', response.status);
-      console.log('[Admin Users Frontend] 7. Response ok:', response.ok);
-
+      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[Admin Users Frontend] 8. Error response:', errorText);
         throw new Error(`Erro ao carregar usuários (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('[Admin Users Frontend] 9. Data received:', data);
-      console.log('[Admin Users Frontend] 10. Users count:', data.users?.length || 0);
       
       setUsers(data.users || []);
     } catch (err: any) {
-      console.error('[Admin Users Frontend] ❌ ERRO FINAL:', err);
-      console.error('[Admin Users Frontend] ❌ Stack:', err.stack);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -97,14 +82,11 @@ export function UsersList() {
         throw new Error('Erro ao atualizar usuário');
       }
 
-      // Atualizar lista local
       setUsers(users.map(user => 
         user.id === userId ? { ...user, role: newRole } : user
       ));
-
-      console.log('[Admin] Usuário atualizado com sucesso');
+      
     } catch (err: any) {
-      console.error('[Admin] Erro ao atualizar usuário:', err);
       alert(err.message);
     }
   };
@@ -146,16 +128,12 @@ export function UsersList() {
       
       // Em desenvolvimento, mostrar o código no console e no alert
       if (data.devCode) {
-        console.log('[Admin] 🔑 CÓDIGO DE DESENVOLVIMENTO:', data.devCode);
-        console.log('[Admin] 📧 Email:', userEmail);
         alert(`✅ Código enviado para ${userEmail}\n\n🔑 CÓDIGO (apenas em desenvolvimento): ${data.devCode}\n\nO usuário deve acessar a tela de recuperação de senha e inserir este código junto com o email.`);
       } else {
         alert(`✅ Código de redefinição de senha enviado para ${userEmail}`);
       }
       
-      console.log('[Admin] Código de reset enviado com sucesso');
     } catch (err: any) {
-      console.error('[Admin] Erro ao enviar código de reset:', err);
       alert(`❌ Erro: ${err.message}`);
     }
   };

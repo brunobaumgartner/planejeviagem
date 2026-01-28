@@ -281,23 +281,105 @@ async function sendWithSendGrid(options: EmailOptions): Promise<EmailResult> {
  * Funciona com qualquer servidor SMTP
  */
 async function sendWithSMTP(options: EmailOptions): Promise<EmailResult> {
+  // 1. VALIDAÇÃO: Verificar se todas as configurações necessárias estão presentes
   const host = Deno.env.get('SMTP_HOST');
   const port = Deno.env.get('SMTP_PORT');
   const user = Deno.env.get('SMTP_USER');
   const pass = Deno.env.get('SMTP_PASS');
   
   if (!host || !port || !user || !pass) {
-    console.error('[Email] Configurações SMTP incompletas');
-    return { success: false, error: 'Configurações SMTP incompletas' };
+    console.error('[Email SMTP] ❌ Configurações SMTP incompletas');
+    console.error('[Email SMTP] Necessário: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS');
+    return { 
+      success: false, 
+      error: 'Configurações SMTP incompletas. Verifique SMTP_HOST, SMTP_PORT, SMTP_USER e SMTP_PASS.' 
+    };
   }
 
-  // TODO: Implementar envio SMTP usando biblioteca Deno
-  // Por enquanto, retornar erro explicativo
-  console.error('[Email] SMTP não implementado ainda');
-  return { 
-    success: false, 
-    error: 'SMTP não implementado. Use Resend ou SendGrid por enquanto.' 
-  };
+  // 2. CONFIGURAÇÃO: Preparar informações do remetente
+  const fromName = Deno.env.get('SMTP_FROM_NAME') || 'Planeje Fácil';
+  const fromEmail = Deno.env.get('SMTP_FROM_EMAIL') || user;
+  const fromAddress = options.from || `${fromName} <${fromEmail}>`;
+  
+  console.log('[Email SMTP] 📨 Iniciando envio de email...');
+  console.log(`[Email SMTP] Servidor: ${host}:${port}`);
+  console.log(`[Email SMTP] De: ${fromAddress}`);
+  console.log(`[Email SMTP] Para: ${options.to}`);
+  console.log(`[Email SMTP] Assunto: ${options.subject}`);
+
+  try {
+    // 3. IMPORTAÇÃO DINÂMICA: Importar a biblioteca SMTPClient do Deno
+    // Usamos importação dinâmica para evitar carregar a biblioteca se não for necessária
+    const { SMTPClient } = await import('https://deno.land/x/denomailer@1.6.0/mod.ts');
+    
+    // 4. CONFIGURAÇÃO DO CLIENTE: Criar instância do cliente SMTP
+    const client = new SMTPClient({
+      connection: {
+        hostname: host,
+        port: parseInt(port, 10),
+        // TLS/SSL: Determinar se deve usar conexão segura baseado na porta
+        // Porta 465 = SSL direto, porta 587 = STARTTLS, porta 25 = sem criptografia
+        tls: port === '465',
+        // STARTTLS: Upgrade de conexão não segura para segura (usado na porta 587)
+        auth: {
+          username: user,
+          password: pass,
+        },
+      },
+    });
+
+    console.log('[Email SMTP] 🔌 Conectando ao servidor SMTP...');
+
+    // 5. ENVIO: Enviar o email
+    await client.send({
+      from: fromAddress,
+      to: options.to,
+      subject: options.subject,
+      content: 'auto', // Define automaticamente o content-type baseado no conteúdo
+      html: options.html,
+    });
+
+    // 6. LIMPEZA: Fechar a conexão com o servidor SMTP
+    await client.close();
+
+    // 7. SUCESSO: Retornar resultado positivo
+    const messageId = `smtp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[Email SMTP] ✅ Email enviado com sucesso! ID: ${messageId}`);
+    
+    return { 
+      success: true, 
+      messageId 
+    };
+
+  } catch (error) {
+    // 8. TRATAMENTO DE ERROS: Capturar e logar erros detalhados
+    console.error('[Email SMTP] ❌ Erro ao enviar email via SMTP:', error);
+    
+    // Fornecer mensagens de erro mais específicas baseadas no tipo de erro
+    let errorMessage = 'Erro ao enviar email via SMTP';
+    
+    if (error.message) {
+      // Erros comuns e suas soluções
+      if (error.message.includes('authentication failed') || error.message.includes('Invalid login')) {
+        errorMessage = 'Autenticação SMTP falhou. Verifique SMTP_USER e SMTP_PASS.';
+      } else if (error.message.includes('Connection refused') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Não foi possível conectar ao servidor SMTP. Verifique SMTP_HOST e SMTP_PORT.';
+      } else if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+        errorMessage = 'Tempo limite de conexão excedido. Verifique se o servidor SMTP está acessível.';
+      } else if (error.message.includes('certificate') || error.message.includes('TLS')) {
+        errorMessage = 'Erro de certificado SSL/TLS. Tente usar porta 587 com STARTTLS.';
+      } else {
+        errorMessage = `Erro SMTP: ${error.message}`;
+      }
+      
+      console.error('[Email SMTP] Detalhes do erro:', error.message);
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage 
+    };
+  }
 }
 
 /**

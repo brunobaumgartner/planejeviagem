@@ -122,7 +122,7 @@ export class AuthService {
       return {
         id: user.id,
         email: user.email,
-        role: user.user_metadata?.role,
+        role: user?.role,
         aud: user.aud
       };
     } catch (error) {
