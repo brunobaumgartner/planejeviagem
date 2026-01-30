@@ -411,7 +411,7 @@ export function LogoSplash({
         style={{ animationDelay: "1.5s" }}
       >
         <h1 className="text-3xl text-gray-800 mb-1">
-          Planeje Viagemm
+          Planeje Viagem
         </h1>
         <p className="text-sm text-gray-600">
           Viajar pode ser leve

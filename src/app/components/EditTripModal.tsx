@@ -321,7 +321,6 @@ export function EditTripModal({ isOpen, onClose, onSubmit, trip }: EditTripModal
                 <input
                   type="number"
                   min="1"
-                  max="10"
                   value={passengers}
                   onChange={(e) => setPassengers(Math.max(1, parseInt(e.target.value) || 1))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"

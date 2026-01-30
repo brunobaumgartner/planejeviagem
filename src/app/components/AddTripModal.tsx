@@ -596,7 +596,6 @@ export function AddTripModal({ isOpen, onClose, onSubmit }: AddTripModalProps) {
                   <input
                     type="number"
                     min="1"
-                    max="10"
                     value={passengers}
                     onChange={(e) => setPassengers(parseInt(e.target.value) || 1)}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 text-base"
