@@ -5,7 +5,7 @@ import { Logo } from "../Logo";
 import { TripSuggestions } from "../TripSuggestions";
 import { NotificationBell } from "../NotificationBell";
 import { CulturalGuideModal } from "../CulturalGuideModal";
-import { HotelSuggestionsCarousel } from "../HotelSuggestionsCarousel";
+import { HotelSearch } from "../HotelSearch";
 import { CarRentalWidget } from "../CarRentalWidget";
 import { TourSuggestionsCarousel } from "../TourSuggestionsCarousel";
 import { FlightWidget } from "../FlightWidget";
@@ -145,7 +145,7 @@ export function Home() {
         <FlightWidget />
 
         {/* Hotel Suggestions Carousel - TRAVELPAYOUTS */}
-        <HotelSuggestionsCarousel />
+        <HotelSearch />
 
         {/* Car Rental Widget - TRAVELPAYOUTS */}
         <CarRentalWidget />
