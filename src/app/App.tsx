@@ -123,7 +123,7 @@ function AppContent() {
 
   return (
     <>
-      <div className="w-full max-w-[80%] mx-auto lg:max-w-[80vw]">
+      <div className="w-full lg:w-[80%] mx-auto">
         {(() => {
           switch (currentScreen) {
             case "packages":
