@@ -11,13 +11,12 @@ export function FlightWidget() {
       return;
     }
 
-    const script = document.createElement('script');
-    script.src =
-      'https://tpwidg.com/content?currency=brl&trs=491435&shmarker=698211.698211&powered_by=true&locale=pt&searchUrl=www.aviasales.pt%2Fsearch&primary_override=%2332a8dd&color_button=%2332a8dd&color_icons=%2332a8dd&dark=%23262626&light=%23FFFFFF&secondary=%23FFFFFF&special=%23C4C4C4&color_focused=%2332a8dd&border_radius=8&no_labels=true&plain=true&promo_id=7879&campaign_id=100';
-
-    script.async = true;
-    script.charset = 'utf-8';
-    script.setAttribute('data-flight-widget', 'true');
+    const script = document.createElement('a');
+    script.setAttribute('alt', 'VDP - AEREO MELHORPREÇO');
+    script.setAttribute('width', '300');
+    script.setAttribute('height', '100');
+    script.setAttribute('style', 'height: 100px; width: 300px');
+    script.setAttribute('href', 'https://www.vaidepromo.com.br/?utm_medium=afiliado&pcrid=13647&utm_source=banner&pcrtt=parceiros_banner160');
 
     containerRef.current.appendChild(script);
   }, []);
@@ -27,10 +26,20 @@ export function FlightWidget() {
       <h2 className="text-lg font-bold text-gray-900 mb-3 px-1">
         ✈️ Buscar Voos
       </h2>
-      <div
-        ref={containerRef}
-        className="bg-white rounded-xl shadow-sm border border-gray-200"
-      />
+      <a 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        href="https://www.vaidepromo.com.br/?utm_medium=afiliado&pcrid=13647&utm_source=banner&pcrtt=parceiros_banner160"
+      >
+        <img
+          alt="VDP - AEREO MELHORPREÇO"
+          width="200"
+          height="100%"
+          style={{ height: '200px', width: '100%' }}
+          src="https://storage.googleapis.com/parceirospromo/content/banner/9ca2fe4f-e2c1-457f-a128-bb0c0ff06266/Passagem-aérea-com-o-melhor-preço300-x-100-Aéreo.png"
+        />
+      </a>
+
     </div>
   );
 }
