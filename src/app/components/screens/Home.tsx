@@ -5,7 +5,7 @@ import { Logo } from "../Logo";
 import { TripSuggestions } from "../TripSuggestions";
 import { NotificationBell } from "../NotificationBell";
 import { CulturalGuideModal } from "../CulturalGuideModal";
-import { HotelSearch } from "../HotelSearch";
+import { HotelSuggestionsCarousel } from "../HotelSuggestionsCarousel";
 import { CarRentalWidget } from "../CarRentalWidget";
 import { TourSuggestionsCarousel } from "../TourSuggestionsCarousel";
 import { FlightWidget } from "../FlightWidget";
@@ -136,16 +136,16 @@ export function Home() {
           </div>
         </div>
 
-        {/* Trip Suggestions */}
+        {/* Trip Suggestions
         <div className="mb-6">
           <TripSuggestions onSelectSuggestion={handleSelectSuggestion} />
-        </div>
+        </div> */}
 
         {/* Widget de Voos - TRAVELPAYOUTS */}
         <FlightWidget />
 
         {/* Hotel Suggestions Carousel - TRAVELPAYOUTS */}
-        <HotelSearch />
+        <HotelSuggestionsCarousel />
 
         {/* Car Rental Widget - TRAVELPAYOUTS */}
         <CarRentalWidget />
