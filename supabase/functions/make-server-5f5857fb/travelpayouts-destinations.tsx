@@ -451,29 +451,3 @@ export function estimateDestinationCosts(destination: DestinationData): {
 
   return { accommodation, dailyExpenses, emoji };
 }
-
-/**
- * Resolve um código IATA (CITY ou AIRPORT) para nome legível
- * Usado principalmente no frontend
- */
-export async function resolveIataToName(code: string): Promise<string> {
-  const normalized = code.toUpperCase();
-
-  try {
-    const cities = await fetchAllCitiesData();
-
-    const city = cities.find(
-      (c: any) => c.code === normalized
-    );
-
-    if (!city) {
-      return normalized;
-    }
-
-    return city.name || normalized;
-
-  } catch (error) {
-    console.error(`[TPDestinations] Erro ao resolver IATA ${code}`, error);
-    return normalized;
-  }
-}

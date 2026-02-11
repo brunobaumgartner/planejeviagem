@@ -143,52 +143,7 @@ export function MinhasViagens() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
-      {/* Top Navigation - Desktop only */}
-      <TopNavigation activeTab="trips" />
       
-      {/* Header - Mobile only */}
-      <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 z-10">
-        <div className="flex items-center justify-between">
-          <div className="w-8 sm:w-10">
-            <button className="p-2" onClick={() => setCurrentScreen('home')}>
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-          </div>
-          <Logo
-            size={28}
-            variant="full"
-            className="text-sky-500"
-          />
-          <div className="flex items-center gap-1 relative">
-            <button className="p-2" onClick={() => setShowMenu(!showMenu)}>
-              <MoreHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 top-12 bg-white border border-gray-200 shadow-lg rounded-lg z-20 min-w-[160px]">
-                <button 
-                  className="block px-4 py-2 text-gray-800 hover:bg-gray-100 w-full text-left text-sm" 
-                  onClick={() => {
-                    window.location.reload();
-                    setShowMenu(false);
-                  }}
-                >
-                  <RotateCcw className="w-4 h-4 mr-2 inline-block" /> Atualizar
-                </button>
-                <button 
-                  className="block px-4 py-2 text-gray-800 hover:bg-gray-100 w-full text-left text-sm" 
-                  onClick={() => {
-                    setShowAddTripModal(true);
-                    setShowMenu(false);
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2 inline-block" /> Nova Viagem
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
       <main className="px-3 sm:px-4 pt-4 sm:pt-6">
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>

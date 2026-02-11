@@ -40,20 +40,7 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-white pb-24 lg:pb-0">
-      {/* Top Navigation - Desktop only */}
-      <TopNavigation activeTab="home" />
       
-      {/* Header - Mobile only */}
-      <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 z-10">
-        <div className="flex items-center justify-between">
-          <Logo
-            size={28}
-            variant="full"
-            className="text-sky-500"
-          />
-          <NotificationBell />
-        </div>
-      </header>
 
       {/* Main Content */}
       <main className="px-3 sm:px-4 pt-4 sm:pt-6">
@@ -66,50 +53,6 @@ export function Home() {
             Organize sua viagem no seu tempo, do seu jeito e
             dentro do seu orçamento.
           </p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="mb-6 sm:mb-8">
-          <SearchBar placeholder="Para onde você quer ir?" onCitySelect={handleCitySelect} />
-        </div>
-
-        {/* FEATURE 4: Guia Turístico */}
-        <div className="mb-6">
-          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-2xl p-6 border-2 border-amber-200">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-3xl">📚</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-lg font-bold text-gray-900">Guia Turístico</h3>
-                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                    NOVO
-                  </span>
-                </div>
-                <p className="text-sm text-gray-700 mb-4">
-                  Descubra história, cultura e dicas sobre <strong>qualquer cidade do mundo</strong>. Use a busca acima e comece a explorar!
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
-                    🏛️ História completa
-                  </span>
-                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
-                    🖼️ Galeria de fotos
-                  </span>
-                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
-                    💡 Dicas práticas
-                  </span>
-                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
-                    🌐 Português, Inglês e Espanhol
-                  </span>
-                  <span className="px-3 py-1 bg-white/60 text-xs font-medium text-gray-700 rounded-full">
-                    🌍 Qualquer cidade do mundo
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Call to Action - MOVIDO PARA DEPOIS DO GUIA TURÍSTICO */}

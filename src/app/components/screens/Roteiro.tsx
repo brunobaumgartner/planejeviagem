@@ -99,23 +99,6 @@ export function Roteiro() {
   if (isGuest) {
     return (
       <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
-        {/* Top Navigation - Desktop only */}
-        <TopNavigation activeTab="itinerary" />
-        
-        {/* Header - Mobile only */}
-        <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setCurrentScreen('home')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Voltar"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-700" />
-            </button>
-            <Logo size={32} variant="full" className="text-sky-500" />
-            <div className="w-10" /> {/* Spacer para centralizar o logo */}
-          </div>
-        </header>
 
         <main className="px-4 pt-12 flex flex-col items-center justify-center min-h-[70vh]">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
@@ -163,23 +146,6 @@ export function Roteiro() {
   // LOGGED USER: Show trips list
   return (
     <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
-      {/* Top Navigation - Desktop only */}
-      <TopNavigation activeTab="itinerary" />
-      
-      {/* Header - Mobile only */}
-      <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setCurrentScreen('home')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
-          </button>
-          <Logo size={32} variant="full" className="text-sky-500" />
-          <UserBadge role={user!.role} size="sm" />
-        </div>
-      </header>
 
       <main className="px-4 pt-6">
         {/* Header */}

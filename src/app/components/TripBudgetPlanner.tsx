@@ -97,7 +97,7 @@ export function TripBudgetPlanner({ onSearch }: TripBudgetPlannerProps) {
           <DollarSign className="w-4 h-4 inline mr-2" />
           Por Orçamento
         </button>
-        <button
+        {/* <button
           type="button"
           onClick={() => setSearchType('destination')}
           className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
@@ -108,7 +108,7 @@ export function TripBudgetPlanner({ onSearch }: TripBudgetPlannerProps) {
         >
           <MapPin className="w-4 h-4 inline mr-2" />
           Por Destino
-        </button>
+        </button> */}
       </div>
 
       {/* Form */}

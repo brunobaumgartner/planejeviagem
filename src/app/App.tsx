@@ -23,6 +23,10 @@ import { NotificationsProvider } from "./context/NotificationsContext";
 import { useSharedTrip } from "./hooks/useSharedTrip";
 import { AcceptSharedTripModal } from "./components/AcceptSharedTripModal";
 import { TestHelper } from "./components/TestHelper";
+import { FaleConosco } from "./components/screens/FaleConosco";
+import { Logo } from "./components/Logo";
+import { NotificationBell } from "./components/NotificationBell";
+import { TopNavigation } from "./components/TopNavigation";
 
 // Mostrar TestHelper apenas em desenvolvimento
 const isDev = import.meta.env.DEV;
@@ -40,12 +44,7 @@ function AppContent() {
     const path = window.location.pathname;
     const hash = window.location.hash;
     const fullUrl = window.location.href;
-    
-    console.log('[App] 🔍 Verificando URL para detecção de rotas especiais...');
-    console.log('[App]   - Full URL:', fullUrl);
-    console.log('[App]   - Pathname:', path);
-    console.log('[App]   - Hash:', hash);
-    
+
     // Detectar erro de link expirado/inválido no hash
     if (hash.includes('error=access_denied') || 
         hash.includes('error_code=otp_expired') ||
@@ -120,9 +119,27 @@ function AppContent() {
   if (path.includes('/payment-pending')) {
     return <PaymentCallback result="pending" />;
   }
-
+  const ignorePages = ['signup', 'login', 'forgot-password', 'reset-password'];
   return (
     <>
+      {!ignorePages.includes(currentScreen) && (
+        <>
+          {/* Top Navigation - Desktop only */}
+          <TopNavigation activeTab={currentScreen} />
+
+          {/* Header - Mobile only */}
+          <header className="lg:hidden sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 z-10">
+            <div className="flex items-center justify-between">
+              <Logo
+                size={28}
+                variant="full"
+                className="text-sky-500"
+              />
+              <NotificationBell />
+            </div>
+          </header>
+        </>
+      )}
       <div className="w-full lg:w-[80%] mx-auto">
         {(() => {
           switch (currentScreen) {
@@ -150,11 +167,9 @@ function AppContent() {
               return <Guide />;
             case "trip-planner":
               return <TripPlanner />;
+            case "FaleConosco":
+              return <FaleConosco />;
             default:
-              // Detectar hash #wiki-guide para mostrar demo da Feature 4
-              if (window.location.hash === '#wiki-guide') {
-                return <WikiGuideDemo />;
-              }
               return <Home />;
           }
         })()}
