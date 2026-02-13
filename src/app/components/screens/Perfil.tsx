@@ -81,7 +81,7 @@ export function Perfil() {
       icon: HelpCircle,
       label: 'Ajuda e Suporte',
       description: 'Central de ajuda',
-      onClick: () => alert('Em breve'),
+      onClick: () => setCurrentScreen('help-support'),
     },
   ];
 

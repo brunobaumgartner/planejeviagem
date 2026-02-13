@@ -24,6 +24,7 @@ import { useSharedTrip } from "./hooks/useSharedTrip";
 import { AcceptSharedTripModal } from "./components/AcceptSharedTripModal";
 import { TestHelper } from "./components/TestHelper";
 import { FaleConosco } from "./components/screens/FaleConosco";
+import { AjudaSuporte } from "./components/screens/AjudaSuporte";
 import { Logo } from "./components/Logo";
 import { NotificationBell } from "./components/NotificationBell";
 import { TopNavigation } from "./components/TopNavigation";
@@ -169,6 +170,8 @@ function AppContent() {
               return <TripPlanner />;
             case "FaleConosco":
               return <FaleConosco />;
+            case "help-support":
+              return <AjudaSuporte />;
             default:
               return <Home />;
           }
