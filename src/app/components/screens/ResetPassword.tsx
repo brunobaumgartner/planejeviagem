@@ -105,16 +105,14 @@ export function ResetPassword() {
     try {
       console.log('[ResetPassword] Resetando senha...');
       
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/auth/reset-password-with-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ 
-          email, 
-          code, 
-          newPassword: password 
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-5f5857fb/auth/reset-password-with-code`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({ email, code, newPassword: password 
         }),
       });
 

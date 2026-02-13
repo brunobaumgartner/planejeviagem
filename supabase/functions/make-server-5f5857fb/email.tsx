@@ -136,9 +136,16 @@ function getContatoTemplate(params: {
   assunto: string;
   mensagem: string;
 }): string {
-  const nome = (params.nome || "").trim();
-  const safe = (s: string) =>
-    s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const nome = String(params.nome ?? "").trim();
+  const email = String(params.email ?? "");
+  const assunto = String(params.assunto ?? "");
+  const mensagem = String(params.mensagem ?? "");
+
+  const safe = (s: unknown) =>
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
 
   return `
 <!DOCTYPE html>
@@ -151,11 +158,11 @@ function getContatoTemplate(params: {
     </div>
     <div style="padding:20px;color:#0f172a;">
       <p style="margin:0 0 8px;"><strong>De:</strong> ${safe(
-        nome ? `${nome} <${params.email}>` : params.email,
+        nome ? `${nome} <${email}>` : email
       )}</p>
-      <p style="margin:0 0 16px;"><strong>Assunto:</strong> ${safe(params.assunto)}</p>
+      <p style="margin:0 0 16px;"><strong>Assunto:</strong> ${safe(assunto)}</p>
       <div style="padding:14px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;white-space:pre-wrap;line-height:1.5;">
-        ${safe(params.mensagem)}
+        ${safe(mensagem)}
       </div>
     </div>
   </div>
@@ -334,7 +341,7 @@ export async function sendContatoEmail(
   // e o email do usuário ir em Reply-To (se você quiser evoluir depois).
   return sendEmail({
     to,
-    subject: `📩 Fale Conosco — ${subject}`,
+    subject: `Fale Conosco — ${subject}`,
     html: finalHtml,
   });
 }

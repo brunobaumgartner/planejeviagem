@@ -9,7 +9,7 @@ import travelpayoutsRoutes from './travelpayouts.tsx';
 import * as tpDestinations from './travelpayouts-destinations.tsx';
 import * as tpHotels from './travelpayouts-hotels.tsx';
 import * as tpFlights from './travelpayouts-flights.tsx';
-import { sendPasswordResetEmail } from './email.tsx';
+import { sendPasswordResetEmail, sendContatoEmail } from './email.tsx';
 
 const app = new Hono();
 
@@ -2040,6 +2040,61 @@ app.post('/make-server-5f5857fb/auth/reset-password-with-code', async (c) => {
     return c.json({ error: 'Erro ao resetar senha' }, 500);
   }
 });
+
+// Emdpoint para enviar email de contato
+app.post("/make-server-5f5857fb/contact/send", async (c) => {
+  const body = await c.req.json();
+
+  const { nome, email, mensagem } = body;
+
+  if (nome.length < 2) return c.json({ success: false, error: "Nome inválido" }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return c.json({ success: false, error: "Email inválido" }, 400);
+  }
+  if (mensagem.length < 10) return c.json({ success: false, error: "Mensagem muito curta" }, 400);
+
+  const to = Deno.env.get("CONTACT_TO_EMAIL_CONTACT") || "";
+  const subject = `${escapeHtml(nome)} - ${Date.now()}`;
+
+  if (!to) {
+    return c.json({
+      success: false,
+      error: "CONTACT_TO_EMAIL_CONTACT não configurado",
+    }, 500);
+  }
+
+  const text = `Nova mensagem de contato\n\nNome: ${escapeHtml(nome)}\nEmail: ${escapeHtml(email)}\n\nMensagem:\n${escapeHtml(mensagem)}`;
+  const html = `
+    <h2>Nova mensagem de contato</h2>
+    <p><b>Nome:</b> ${escapeHtml(nome)}</p>
+    <p><b>Email:</b> ${escapeHtml(email)}</p>
+    <hr />
+    <p style="white-space: pre-wrap">${escapeHtml(mensagem)}</p>
+  `;
+
+  const result = await sendContatoEmail(
+    email,
+    to,
+    subject,
+    text,
+    html
+  );
+
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, 502);
+  }
+
+  return c.json({ success: true });
+});
+
+function escapeHtml(input: string): string {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 // ============================================
 // BUDGET ROUTES
@@ -5135,24 +5190,6 @@ app.post('/make-server-5f5857fb/api/exchange/calculate-cash', async (c) => {
 
 console.log('[Exchange] ✅ Routes registered');
 
-// ============================================
-// IMPORTANTE: INSTRUÇÃO DE MIGRAÇÃO
-// ============================================
-console.log('');
-console.log('='.repeat(60));
-console.log('⚠️  ATENÇÃO: MIGRAÇÃO NECESSÁRIA');
-console.log('='.repeat(60));
-console.log('Para o sistema funcionar corretamente, execute este SQL no Supabase:');
-console.log('');
-console.log('ALTER TABLE profiles ADD COLUMN IF NOT EXISTS home_city TEXT;');
-console.log('');
-console.log('Onde executar:');
-console.log('1. Acesse o Supabase Dashboard');
-console.log('2. Vá em "SQL Editor"');
-console.log('3. Cole o comando acima');
-console.log('4. Clique em "Run"');
-console.log('='.repeat(60));
-console.log('');
 
 // Mount Travelpayouts routes
 app.route('/make-server-5f5857fb/travelpayouts', travelpayoutsRoutes);
