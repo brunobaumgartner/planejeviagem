@@ -139,8 +139,6 @@ export function Home() {
         {/* Support Message */}
         <div className="text-center py-8 px-4 bg-gray-50 rounded-lg mb-6">
           <p className="text-gray-700">
-            Você pode explorar tudo gratuitamente.
-            <br />
             Se quiser ajuda, a gente organiza com você.
           </p>
         </div>
